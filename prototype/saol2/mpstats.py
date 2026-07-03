@@ -38,7 +38,7 @@ logger = logging.getLogger(__name__)
 BASE = "https://mpstats.io/api/analytics/v1/wb"
 LIMITS_URL = "https://mpstats.io/api/user/report_api_limit"
 CATEGORIES_URL = "https://mpstats.io/api/wb/get/categories"  # дерево категорий (GET, работает)
-TIMEOUT = 30.0
+TIMEOUT = 12.0   # было 30 — один зависший запрос не должен стоить пол-оценки; медленный дропаем
 _CACHE_DIR = Path(os.environ.get("SAOL2_CACHE", Path(__file__).resolve().parent / ".cache"))
 _CACHE_TTL = float(os.environ.get("SAOL2_CACHE_TTL", 24 * 3600))  # сутки
 
@@ -114,14 +114,24 @@ class MPStats:
             hit = _cache_get(cache_key)
             if hit is not None:
                 return hit
-        try:
-            if method == "GET":
-                r = self._session.get(url, timeout=TIMEOUT)
-            else:
-                r = self._session.post(url, data=json.dumps(body or _DEFAULT_BODY), timeout=TIMEOUT)
-        except requests.RequestException as e:
-            logger.warning("MPStats транспорт упал: %s", e)
-            return None
+        payload = None if method == "GET" else json.dumps(body or _DEFAULT_BODY)
+        r = None
+        for attempt in range(2):
+            try:
+                if method == "GET":
+                    r = self._session.get(url, timeout=TIMEOUT)
+                else:
+                    r = self._session.post(url, data=payload, timeout=TIMEOUT)
+                break
+            except requests.exceptions.ConnectionError as e:
+                # быстрый обрыв (MPStats рвёт соединение при параллели) — повтор ДЁШЕВ, данные не теряем
+                if attempt == 1:
+                    logger.warning("MPStats обрыв (2 попытки): %s", e)
+                    return None
+            except requests.RequestException as e:
+                # таймаут/прочее — НЕ повторяем (повтор = ещё +TIMEOUT, дорого)
+                logger.warning("MPStats транспорт упал: %s", e)
+                return None
         try:
             data = r.json()
         except ValueError:

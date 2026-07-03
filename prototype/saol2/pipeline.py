@@ -104,9 +104,11 @@ def _apply_size(analogs: list[ItemMetrics], query: str | None, notes: list[str],
 
 def _niche_seasonality(client: MPStats, analogs: list[ItemMetrics], subject_id: int | None,
                        cap: int = 40) -> tuple[dict | None, float | None]:
-    """Сезонность + ТРЕНД ниши: тянем дневной ряд by_period для живых аналогов
-    категории (в параллель), складываем заказы по календарным месяцам (сезонность)
-    и считаем тренд год-к-году по каждому, берём медиану. cap — предохранитель."""
+    """Сезонность + ТРЕНД ниши по ВСЕМУ живому пулу (не топ-N!). ВАЖНО: брать топ-N ПО ПРОДАЖАМ
+    для тренда НЕЛЬЗЯ — это survivorship bias: топами становятся выросшие, и тренд систематически
+    задирается вверх (медведь: топ-10 → ×3.1 «растёт», весь пул → ×0.76 «падает»). Полный пул —
+    наименее смещённая оценка. Мелкая база уже отсекается в series_trend (past<5 → None). cap —
+    предохранитель на огромные ниши (fallback-категория 200 карточек). Тянем by_period в параллель."""
     if not subject_id:
         return None, None
     # Для сезонности/тренда НЕ требуем наличие: история заказов за год валидна и без остатка.
@@ -121,7 +123,7 @@ def _niche_seasonality(client: MPStats, analogs: list[ItemMetrics], subject_id: 
     season_cutoff = (date.fromisoformat(d2) - timedelta(days=365)).isoformat()
     months = [0.0] * 12
     trends: list[float] = []
-    with ThreadPoolExecutor(max_workers=8) as pool:
+    with ThreadPoolExecutor(max_workers=16) as pool:
         for rows in pool.map(lambda a: client.item_by_period(a.nm, d1, d2) or [], cat):
             season_rows = [r for r in rows if (r.get("data") or r.get("date") or "") >= season_cutoff]
             cm = calendar_monthly(season_rows)
@@ -208,7 +210,7 @@ def collect_analogs(client: MPStats, nms: list[int], limit: int) -> tuple[list[I
     capped = ordered[:limit]
     if len(ordered) > limit:
         notes.append(f"похожих {len(ordered)} → беру {limit} ближайших по похожести")
-    with ThreadPoolExecutor(max_workers=8) as pool:
+    with ThreadPoolExecutor(max_workers=16) as pool:
         analogs = list(pool.map(lambda n: fetch_item_metrics(client, n, with_graph=False), capped))
     return analogs, notes
 
@@ -229,7 +231,7 @@ def _identical_pool(client: MPStats, anchors: list[int], per_anchor: int = 30) -
     (когтеточка→2 живых), пул по топ-K живым добивает (→62), не теряя точности.
     Каталожный `similar` (бестселлеры сабджекта = «бревно/Стич») сюда НЕ подмешиваем."""
     seen: dict[int, ItemMetrics] = {}
-    with ThreadPoolExecutor(max_workers=8) as pool:
+    with ThreadPoolExecutor(max_workers=16) as pool:
         for rows in pool.map(
             lambda a: client.similar(int(a), limit=per_anchor, kind="identical") or [], anchors
         ):
@@ -292,7 +294,7 @@ def collect_niche(client: MPStats, seed_nm: int | None, nms: list[int], limit: i
 
 
 def analyze(*, nms: list[int] | None = None, seed_nm: int | None = None,
-            purchase_price: float = 0.0, settings: Settings | None = None, limit: int = 40,
+            purchase_price: float = 0.0, settings: Settings | None = None, limit: int = 24,
             stores: int | None = None, query: str | None = None) -> dict:
     """Полный расчёт → словарь (для CLI и веб-интерфейса).
 
