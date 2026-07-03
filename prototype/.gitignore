@@ -1,0 +1,25 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.ruff_cache/
+.cache/
+*/.cache/
+data/*.db
+data/*.sqlite
+data/uploads/
+*.egg-info/
+.DS_Store
+node_modules/
+*.log
+*.jsonl
+
+# тяжёлые исходные данные (качаются/импортируются отдельно)
+*.xlsx
+*.xls
+revenue/*.xlsx
+registries/*.xlsx
+classifiers/*.xlsx
+*.zip

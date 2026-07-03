@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#2563eb" />
+  <title>Оценка товара</title>
+  <link rel="manifest" href="static/manifest.json?v=20260603f" />
+  <link rel="apple-touch-icon" href="static/icon-192.png?v=20260603f" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="Оценка товара" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <link rel="stylesheet" href="static/styles.css?v=20260603f" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="logo">Оценка товара</div>
+    <div class="subtitle">Стоит ли везти на Wildberries</div>
+  </header>
+
+  <main>
+    <section id="form" class="card">
+      <label class="photo-btn" for="image">
+        <span class="photo-ico"></span>
+        <span class="photo-text">Сфотографировать товар</span>
+        <input type="file" id="image" accept="image/*" capture="environment" hidden />
+      </label>
+      <label class="photo-btn gallery" for="image-gallery">
+        <span class="photo-text">Загрузить из галереи</span>
+        <input type="file" id="image-gallery" accept="image/*" hidden />
+      </label>
+      <div id="image-preview" class="preview hidden"></div>
+      <button type="button" id="image-clear" class="link hidden">Убрать фото</button>
+
+      <label class="field">
+        <span class="field-label">Уточнение <span class="opt">— необязательно</span></span>
+        <input type="text" id="query" placeholder="напр.: 500 мл · 2 шт · синий" />
+      </label>
+
+      <label class="field">
+        <span class="field-label">Закупочная цена, ₽</span>
+        <input type="number" id="price" inputmode="decimal" min="1" step="1" placeholder="например, 350" />
+      </label>
+
+      <button id="submit" class="primary" type="button">Оценить</button>
+      <div id="error" class="error hidden"></div>
+
+      <details class="manual">
+        <summary>Нет фото? Вставить ссылку с WB</summary>
+        <input id="seed-url" type="text" inputmode="url" placeholder="https://www.wildberries.ru/catalog/123456/detail.aspx" />
+      </details>
+    </section>
+
+    <section id="result" class="card hidden">
+      <div id="verdict" class="verdict"></div>
+      <div id="verdict-sub" class="verdict-sub"></div>
+      <div id="scope-note" class="scope-note hidden"></div>
+
+      <div id="seed-box" class="seed-box hidden"></div>
+
+      <div class="key">
+        <div class="key-row">
+          <span>Тест</span><b id="k-test">—</b><small id="k-test-sub"></small>
+        </div>
+        <div class="key-row"><span>Спрос похожих</span><b id="k-demand">—</b></div>
+        <div class="key-row"><span>Выручка похожих (типичная)</span><b id="k-cat">—</b></div>
+        <div class="key-row"><span>Наценка к рынку</span><b id="k-markup">—</b></div>
+      </div>
+
+      <ul id="notes" class="notes"></ul>
+
+      <details id="details-box">
+        <summary>Подробнее</summary>
+        <div class="aux">
+          <div class="aux-row"><span>Общий балл</span><b id="d-score">—</b></div>
+          <div class="aux-row"><span>Выручка похожих</span><b id="d-niche-rev">—</b></div>
+          <div class="aux-row"><span>Цена похожих (где объём)</span><b id="d-price-seg">—</b></div>
+          <div class="aux-row"><span>Размеры в нише</span><b id="d-size">—</b></div>
+          <div class="aux-row"><span>Тренд год к году</span><b id="d-trend">—</b></div>
+          <div class="aux-row"><span>Заказывается на WB (типичная)</span><b id="d-orders">—</b></div>
+          <div class="aux-row"><span>Лидеры типа</span><b id="d-lead">—</b></div>
+          <div class="aux-row"><span>Выкупается на WB</span><b id="d-demand">—</b></div>
+          <div class="aux-row"><span>Средняя цена на WB</span><b id="d-price">—</b></div>
+          <div class="aux-row"><span>Потенц. маржа теста</span><b id="d-pot-margin">—</b></div>
+          <div class="aux-row"><span>Категория WB</span><b id="d-category">—</b></div>
+          <div class="aux-row"><span>Наценка Разноторга (похожий вид)</span><b id="d-razno-markup">—</b></div>
+        </div>
+
+        <div id="season-box" class="season-box hidden"></div>
+        <div id="season-cat-box" class="season-box hidden"></div>
+
+        <div class="ex-head">Похожие товары на WB</div>
+        <ul id="examples" class="examples"></ul>
+      </details>
+
+      <button id="reset" class="primary ghost" type="button">Оценить другой товар</button>
+    </section>
+  </main>
+
+  <script src="static/app.js?v=20260603f" defer></script>
+</body>
+</html>
