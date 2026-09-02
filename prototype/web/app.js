@@ -19,10 +19,10 @@
   // Новинка из Китая = гипотеза. Любой положительный вердикт = РАЗМЕР ТЕСТА,
   // а не «закупать как проверенный товар».
   const VERDICT = {
-    STRONG:  { label: "БРАТЬ — БОЛЬШОЙ ТЕСТ", sub: "Очень сильный спрос на Wildberries" },
-    GREEN:   { label: "БРАТЬ НА ТЕСТ",        sub: "Хороший спрос на Wildberries" },
-    YELLOW:  { label: "МАЛЫЙ ТЕСТ",           sub: "Спрос есть — возьми чуть-чуть на пробу" },
-    RED:     { label: "НЕ БРАТЬ",             sub: "Спрос на Wildberries слабый" },
+    STRONG:  { label: "ОЧЕНЬ СИЛЬНАЯ ПОЗИЦИЯ", sub: "Очень сильный спрос на Wildberries" },
+    GREEN:   { label: "ХОРОШАЯ ПОЗИЦИЯ",       sub: "Хороший спрос на Wildberries" },
+    YELLOW:  { label: "СОМНИТЕЛЬНАЯ ПОЗИЦИЯ",  sub: "Спрос есть, но недостаточно уверенный" },
+    RED:     { label: "СЛАБАЯ ПОЗИЦИЯ",        sub: "Спрос на Wildberries слабый" },
     UNKNOWN: { label: "НЕТ ДАННЫХ",           sub: "Не удалось оценить — переснимите фото" },
   };
 
@@ -324,17 +324,7 @@
       seedBox.classList.add("hidden");
     }
 
-    // ── 4 ключевые строки (быстрое считывание) ──
-    // Тест — стартовая партия от объёма рынка похожих (не от числа точек).
-    const units = d.test_units;
-    if (units != null && units > 0) {
-      $("k-test").textContent = `${units} шт`;
-      $("k-test-sub").textContent = d.test_capital ? `риск ~${rub(d.test_capital)} ₽` : "";
-    } else {
-      $("k-test").textContent = (v === "RED") ? "0 шт" : "—";
-      $("k-test-sub").textContent = "";
-    }
-
+    // ── ключевые строки (быстрое считывание) ──
     const month = Math.round(d.wb_demand_units_month || 0);     // выкупы типичной
     const ordersM = Math.round(d.wb_orders_units_month || 0);   // заказы типичной
     const leadM = Math.round(d.lead_orders_month || 0);         // заказы лидеров типа

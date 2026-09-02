@@ -302,6 +302,12 @@ def collect_niche(client: MPStats, seed_nm: int | None, nms: list[int], limit: i
     # якоря для identical: seed первым (точнее всего), затем топ-живые визуальные
     anchors: list[int] = [int(seed_nm)] if seed_nm else []
     anchors += [a.nm for a in vlive[:anchors_k] if a.nm != (seed_nm or 0)]
+    if not anchors and nms:
+        # Визуальная выдача может состоять из совершенно новых карточек: WB уже
+        # узнаёт предмет, но MPStats ещё не знает их продаж. Не расширяем фото-
+        # выдачу: пробуем identical только от первых, самых релевантных якорей.
+        anchors = list(dict.fromkeys(int(n) for n in nms))[:anchors_k]
+        notes.append(f"у {len(anchors)} ближайших карточек нет истории MPStats → ищу identical от них")
 
     # 1. ВИД — пул AI-identical по якорям (главный сигнал, узко/точно)
     if anchors:
