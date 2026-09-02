@@ -328,7 +328,10 @@
     const month = Math.round(d.wb_demand_units_month || 0);     // выкупы типичной
     const ordersM = Math.round(d.wb_orders_units_month || 0);   // заказы типичной
     const word = ({ GREEN: "высокий", YELLOW: "средний", RED: "слабый" })[d.wb_demand_verdict] || "—";
-    $("k-demand").textContent = ordersM > 0 ? `${word} · ~${ordersM} зак/мес` : word;
+    const leadersCarry = (d.verdict_reasons || []).includes("LEADERS_CARRY");
+    $("k-demand").textContent = leadersCarry
+      ? "есть успешные похожие товары"
+      : (ordersM > 0 ? `${word} · ~${ordersM} зак/мес` : word);
 
     // Ниша = MPStats similar ≈ категория, поэтому «выручка типа» (а не позиция) — главный сигнал спроса
     $("k-cat").textContent = d.niche_revenue_month != null ? `~${rub(d.niche_revenue_month)} ₽/мес` : "—";
