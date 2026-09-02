@@ -302,6 +302,12 @@ def _top_live_nm(analogs: list[ItemMetrics]) -> int | None:
     return max(live, key=lambda a: a.orders_year).nm if live else None
 
 
+def _top_live_sample(items: list[ItemMetrics], cap: int = 40) -> list[ItemMetrics]:
+    """One shared sample for the fallback score, chart, and displayed leaders."""
+    live = [a for a in items if a.ok and a.in_stock and a.orders_year > 0]
+    return sorted(live, key=lambda a: a.orders_monthly_avg, reverse=True)[:cap]
+
+
 def _identical_pool(client: MPStats, anchors: list[int], per_anchor: int = 30) -> list[ItemMetrics]:
     """ВИД через AI-`identical` MPStats, ПУЛ по нескольким якорям из фото-выдачи (идея
     Кристины): уникальные карточки именно ЭТОГО вида. identical по 1 якорю бывает жидким
@@ -443,7 +449,7 @@ def analyze(*, nms: list[int] | None = None, seed_nm: int | None = None,
         if _live_count(cat_metrics) >= 3:
             notes.append(f"живых похожих мало ({_live_count(analogs)}) → оцениваю по категории "
                          f"«{sname}» ({_live_count(cat_metrics)} живых) — грубее, чем по виду")
-            analogs = cat_metrics
+            analogs = _top_live_sample(cat_metrics, cap=40)
             niche_scope = "type"
         elif wb_subject:
             notes.append("MPStats вернул рынок предмета, но в нём недостаточно карточек с продажами и остатками")
