@@ -327,15 +327,8 @@
     // ── ключевые строки (быстрое считывание) ──
     const month = Math.round(d.wb_demand_units_month || 0);     // выкупы типичной
     const ordersM = Math.round(d.wb_orders_units_month || 0);   // заказы типичной
-    const leadM = Math.round(d.lead_orders_month || 0);         // заказы лидеров типа
     const word = ({ GREEN: "высокий", YELLOW: "средний", RED: "слабый" })[d.wb_demand_verdict] || "—";
-    const buyout = d.buyout_pct_median != null ? Math.round(d.buyout_pct_median) : null;
-    // если спрос держат лидеры (типичная слабее) — в заголовок выносим лидеров, чтобы не было
-    // противоречия «примеры 66/мес ↔ вердикт». Иначе — типичная.
-    const leadCarry = (d.verdict_reasons || []).includes("LEADERS_CARRY");
-    $("k-demand").textContent = (leadCarry && leadM > 0)
-      ? `${word} · лидеры ~${leadM} зак/мес`
-      : (ordersM > 0 ? `${word} · ${ordersM} зак/мес` : word);
+    $("k-demand").textContent = ordersM > 0 ? `${word} · ~${ordersM} зак/мес` : word;
 
     // Ниша = MPStats similar ≈ категория, поэтому «выручка типа» (а не позиция) — главный сигнал спроса
     $("k-cat").textContent = d.niche_revenue_month != null ? `~${rub(d.niche_revenue_month)} ₽/мес` : "—";
@@ -359,33 +352,19 @@
     }
 
     // ── Подробнее (детали) ──
-    const trendPct = d.trend_ratio != null
-      ? `${d.trend_ratio >= 1 ? "+" : "−"}${Math.abs(Math.round((d.trend_ratio - 1) * 100))}% г/г` : "";
+    const trend = $("trend-line");
+    if (d.trend_ratio != null) {
+      const up = d.trend_ratio >= 1;
+      trend.textContent = `${up ? "↑" : "↓"} ${Math.abs(Math.round((d.trend_ratio - 1) * 100))}% к прошлому году`;
+      trend.classList.remove("hidden");
+    } else trend.classList.add("hidden");
     $("d-score").textContent = d.liquidity_score != null
       ? `${Math.round(d.liquidity_score)}/100 (спрос × маржа × тренд)` : "—";
-    $("d-niche-rev").textContent = d.niche_revenue_month != null ? `~${rub(d.niche_revenue_month)} ₽/мес` : "—";
-    $("d-price-seg").textContent = d.price_segment
-      ? `${rub(d.price_segment.low)}–${rub(d.price_segment.high)} ₽ (${d.price_segment.share}% выкупов)` : "—";
-    const sp = d.size_spread;
-    $("d-size").textContent = sp
-      ? `${sp.lo}–${sp.hi} ${sp.unit}${sp.filtered_to ? ` · отфильтровано по ~${sp.filtered_to} ${sp.unit}` : ""}`
-      : "—";
-    $("d-trend").textContent = d.trend_label ? `${d.trend_label}${trendPct ? ` (${trendPct})` : ""}` : "нет данных";
-    $("d-orders").textContent = ordersM > 0
-      ? `~${ordersM} зак/мес${buyout != null ? ` · выкуп ${buyout}%` : ""}` : "—";
-    $("d-lead").textContent = leadM > 0
-      ? `~${leadM} зак/мес${d.lead_revenue_month ? ` · ~${rub(d.lead_revenue_month)} ₽/мес` : ""}` : "—";
-    $("d-demand").textContent = month > 0
-      ? `~${month} вык/мес${d.ratio_to_top != null ? ` · ${Math.round(d.ratio_to_top * 100)}% от топ-10` : ""}` : "—";
+    $("d-orders").textContent = ordersM > 0 ? `~${ordersM} зак/мес` : "—";
     $("d-price").textContent = mp != null ? `${Math.round(mp)} ₽` : "—";
-    $("d-pot-margin").textContent = d.potential_margin != null ? `~${rub(d.potential_margin)} ₽` : "—";
     const subj = d.wb_subject_name
       ? (d.wb_parent_name ? `${d.wb_parent_name} / ${d.wb_subject_name}` : d.wb_subject_name) : "—";
     $("d-category").textContent = subj;
-    $("d-razno-markup").textContent = d.retail_history_markup != null
-      ? `×${d.retail_history_markup.toFixed(2)}`
-      + (d.retail_history_profitability != null ? ` · рентаб. ${d.retail_history_profitability.toFixed(0)}%` : "")
-      : "нет данных";
 
     renderSeason("season-box", d.seasonality, "Сезонность похожих");
     renderSeason("season-cat-box", d.category_seasonality, "Сезонность всей категории на WB");

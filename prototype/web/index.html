@@ -59,8 +59,8 @@
       <div id="seed-box" class="seed-box hidden"></div>
 
       <div class="key">
-        <div class="key-row"><span>Спрос похожих</span><b id="k-demand">—</b></div>
-        <div class="key-row"><span>Выручка похожих (типичная)</span><b id="k-cat">—</b></div>
+        <div class="key-row"><span>Продажи похожих товаров</span><b id="k-demand">—</b></div>
+        <div class="key-row"><span>Выручка похожих товаров</span><b id="k-cat">—</b></div>
         <div class="key-row"><span>Наценка к рынку</span><b id="k-markup">—</b></div>
       </div>
 
@@ -68,21 +68,18 @@
 
       <details id="details-box">
         <summary>Подробнее</summary>
+        <h3 class="result-group">Похожие товары</h3>
         <div class="aux">
-          <div class="aux-row"><span>Общий балл</span><b id="d-score">—</b></div>
-          <div class="aux-row"><span>Выручка похожих</span><b id="d-niche-rev">—</b></div>
-          <div class="aux-row"><span>Цена похожих (где объём)</span><b id="d-price-seg">—</b></div>
-          <div class="aux-row"><span>Размеры в нише</span><b id="d-size">—</b></div>
-          <div class="aux-row"><span>Тренд год к году</span><b id="d-trend">—</b></div>
-          <div class="aux-row"><span>Заказывается на WB (типичная)</span><b id="d-orders">—</b></div>
-          <div class="aux-row"><span>Лидеры типа</span><b id="d-lead">—</b></div>
-          <div class="aux-row"><span>Выкупается на WB</span><b id="d-demand">—</b></div>
-          <div class="aux-row"><span>Средняя цена на WB</span><b id="d-price">—</b></div>
-          <div class="aux-row"><span>Потенц. маржа теста</span><b id="d-pot-margin">—</b></div>
-          <div class="aux-row"><span>Категория WB</span><b id="d-category">—</b></div>
-          <div class="aux-row"><span>Наценка Разноторга (похожий вид)</span><b id="d-razno-markup">—</b></div>
+          <div class="aux-row"><span>Средние заказы</span><b id="d-orders">—</b></div>
+          <div class="aux-row"><span>Средняя цена</span><b id="d-price">—</b></div>
+        </div>
+        <h3 class="result-group">Категория WB</h3>
+        <div class="aux">
+          <div class="aux-row"><span>Категория</span><b id="d-category">—</b></div>
+          <div class="aux-row"><span>Общая оценка</span><b id="d-score">—</b></div>
         </div>
 
+        <div id="trend-line" class="trend-line hidden"></div>
         <div id="season-box" class="season-box hidden"></div>
         <div id="season-cat-box" class="season-box hidden"></div>
 
@@ -94,6 +91,6 @@
     </section>
   </main>
 
-  <script src="static/app.js?v=20260603f" defer></script>
+  <script src="static/app.js?v=20260902a" defer></script>
 </body>
 </html>

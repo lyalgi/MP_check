@@ -184,6 +184,8 @@ summary { cursor: pointer; color: var(--accent); font-size: 15px; font-weight: 6
 .key-row > small { flex-basis: 100%; text-align: right; color: var(--muted); font-size: 12px; font-weight: 400; }
 .key-row > small:empty { display: none; }
 .ex-head { font-size: 13px; color: var(--muted); margin: 14px 0 8px; }
+.result-group { font-size: 14px; margin: 18px 0 8px; color: var(--text); }
+.trend-line { margin: 16px 0 6px; font-size: 14px; font-weight: 700; }
 
 .season-box { margin: 6px 0 14px; padding: 14px 12px; border: 1px solid var(--line); border-radius: 12px; }
 .season-title { font-size: 13px; color: var(--muted); margin-bottom: 12px; }
