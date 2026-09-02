@@ -392,6 +392,7 @@
   resetBtn.addEventListener("click", () => {
     resultCard.classList.add("hidden");
     formCard.classList.remove("hidden");
+    seedUrl.value = "";
     clearPhoto();
     window.scrollTo({ top: 0, behavior: "smooth" });
   });
