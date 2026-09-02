@@ -1,0 +1,8 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "saol2/web_app.py": {
+      "maxDuration": 45
+    }
+  }
+}

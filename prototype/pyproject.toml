@@ -26,6 +26,14 @@ dev = [
     "ruff>=0.6",
 ]
 
+# Vercel runs this FastAPI application as one Python function.  The web UI is
+# mounted by the app at /static and Vercel promotes that mount to its CDN.
+[tool.vercel]
+entrypoint = "saol2.web_app:app"
+
+[tool.vercel.fastapi.static]
+cdn = true
+
 [tool.ruff]
 line-length = 110
 target-version = "py311"
