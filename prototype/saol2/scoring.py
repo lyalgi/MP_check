@@ -192,6 +192,7 @@ def score(
     category_revenue: list[float] | None = None,
     trend_ratio: float | None = None,
     stores: int | None = None,
+    direct_item: bool = False,
 ) -> Verdict:
     """Главный расчёт. category_revenue — выручка/мес товаров категории (срез
     subject/items) для денежного пола и отношения-к-топу; trend_ratio — тренд ниши за год."""
@@ -211,7 +212,9 @@ def score(
 
     cat = [a for a in live if a.subject_id == sid]
     v.analog_count = len(cat)
-    if len(cat) < s.min_analogs:
+    # Для ссылки это не выборка аналогов, а измерение конкретной карточки: один
+    # подтверждённый товар — достаточный источник его собственных показателей.
+    if len(cat) < s.min_analogs and not direct_item:
         v.reasons.append("LOW_SAMPLE")
 
     # ── медианы аналогов (выкупы/заказы/цена) ──

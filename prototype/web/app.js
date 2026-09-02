@@ -287,7 +287,11 @@
     const scopeNote = $("scope-note");
     const subjName = d.wb_subject_name
       ? (d.wb_parent_name ? `${d.wb_parent_name} / ${d.wb_subject_name}` : d.wb_subject_name) : "категории";
-    if (d.niche_scope === "type") {
+    if (d.niche_scope === "item") {
+      scopeNote.className = "scope-note narrow";
+      scopeNote.textContent = "✓ Вердикт по указанной карточке WB; похожие товары показаны как контекст";
+      scopeNote.classList.remove("hidden");
+    } else if (d.niche_scope === "type") {
       scopeNote.className = "scope-note broad";
       scopeNote.textContent = `⚠ Вид не распознан — оценка ШИРОКАЯ, по «${subjName}», а не по этому товару`;
       scopeNote.classList.remove("hidden");

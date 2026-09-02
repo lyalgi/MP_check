@@ -304,6 +304,9 @@ def analyze(*, nms: list[int] | None = None, seed_nm: int | None = None,
     """
     s = settings or Settings()
     client = MPStats()
+    # Для ссылки сначала забираем саму карточку. Раньше она подгружалась только
+    # после расчёта и была видна в интерфейсе, но никак не влияла на вердикт.
+    seed_metric = fetch_item_metrics(client, seed_nm) if seed_nm else None
     analogs, notes, niche_scope = collect_niche(client, seed_nm, nms or [], limit=limit,
                                                 min_visual=s.min_niche, vote_share=s.vote_share)
     if not analogs:
@@ -311,7 +314,12 @@ def analyze(*, nms: list[int] | None = None, seed_nm: int | None = None,
 
     # ── популяция категории (один subject/items): денежный пол + сезонность + резервная ниша ──
     live = [a for a in analogs if a.ok and a.in_stock and a.orders_year > 0]
-    sid, sname, _ = vote_category(live, s.vote_share)
+    if seed_metric and seed_metric.ok and seed_metric.in_stock and seed_metric.orders_year > 0:
+        # Карточка по ссылке — наиболее точный якорь для выбора её категории.
+        live_for_category = [seed_metric]
+    else:
+        live_for_category = live
+    sid, sname, _ = vote_category(live_for_category, s.vote_share)
     pop_rows = client.subject_items(sid, limit=200) if sid else []
     population_revenue = category_seasonality = None
     if pop_rows:
@@ -335,15 +343,25 @@ def analyze(*, nms: list[int] | None = None, seed_nm: int | None = None,
 
     # категорию определяем по итоговой нише; тренд считаем по дневным рядам
     live = [a for a in analogs if a.ok and a.in_stock and a.orders_year > 0]
-    sid, _, _ = vote_category(live, s.vote_share)
-    seasonality, trend_ratio = _niche_seasonality(client, analogs, sid)
+    score_items = analogs
+    direct_item = bool(seed_metric and seed_metric.ok and seed_metric.in_stock and seed_metric.orders_year > 0)
+    if direct_item:
+        # Ссылка означает «оценить именно эту карточку», а не медиану похожих.
+        # Похожие товары всё ещё используются выше для контекста и подстраховки.
+        score_items = [seed_metric]
+        niche_scope = "item"
+        notes.append("ссылка на карточку: вердикт считаю по её собственным продажам и цене; похожие — только контекст")
 
-    v = score(analogs, purchase_price, settings=s, category_revenue=population_revenue,
-              trend_ratio=trend_ratio, stores=stores)
+    score_live = [a for a in score_items if a.ok and a.in_stock and a.orders_year > 0]
+    sid, _, _ = vote_category(score_live, s.vote_share)
+    seasonality, trend_ratio = _niche_seasonality(client, score_items, sid)
+
+    v = score(score_items, purchase_price, settings=s, category_revenue=population_revenue,
+              trend_ratio=trend_ratio, stores=stores, direct_item=direct_item)
 
     seed = None
-    if seed_nm:
-        sm = fetch_item_metrics(client, seed_nm)  # с графиком — для сезонности «твоего товара»
+    if seed_metric:
+        sm = seed_metric
         if sm.ok:
             seed = {
                 "nm": sm.nm, "name": sm.name, "image": sm.image_thumb, "price": sm.price,
