@@ -401,6 +401,10 @@
     renderSeason("season-cat-box", d.category_seasonality, "Сезонность всей категории на WB");
 
     const ex = $("examples");
+    const exHead = $("examples-head");
+    exHead.textContent = d.niche_scope === "item"
+      ? "Похожие товары на WB — контекст, не влияют на вердикт"
+      : "Похожие товары на WB";
     ex.innerHTML = "";
     for (const a of (d.examples || []).slice(0, 6)) {
       const price = a.sale_price ?? a.price ?? 0;

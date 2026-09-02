@@ -18,6 +18,7 @@ import os
 import re
 import statistics
 import sys
+from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, timedelta
 from pathlib import Path
@@ -219,6 +220,39 @@ def _live_count(analogs: list[ItemMetrics]) -> int:
     return sum(1 for a in analogs if a.ok and a.in_stock and a.orders_year > 0)
 
 
+def _wb_subject_fallback(nms: list[int], min_share: float = 0.6) -> tuple[int, int, int] | None:
+    """Определяет предмет WB без истории MPStats.
+
+    Визуальная выдача нередко состоит из совсем новых карточек: они точно
+    описывают предмет, но ещё не успели накопить продажи в MPStats. В таком
+    случае предмет берём из публичных карточек WB, а не из менее релевантных
+    результатов поиска.
+    """
+    if not nms:
+        return None
+    try:
+        from saol_core import fetch_cards
+        cards = fetch_cards(nms[:24])
+    except Exception:  # noqa: BLE001 - публичный WB — только резервный источник
+        return None
+    subjects = [int(c["subjectId"]) for c in cards if c.get("subjectId")]
+    if not subjects:
+        return None
+    sid, count = Counter(subjects).most_common(1)[0]
+    return (sid, count, len(subjects)) if count / len(subjects) >= min_share else None
+
+
+def _context_examples(items: list[ItemMetrics], *, exclude_nm: int | None = None) -> list[dict]:
+    """Карточки для показа рядом с прямой оценкой товара по ссылке."""
+    live = [a for a in items if a.ok and a.in_stock and a.orders_year > 0 and a.nm != exclude_nm]
+    return [{
+        "nm": a.nm, "name": a.name[:50], "price": a.price,
+        "orders_month": a.orders_monthly_avg, "redeemed_month": round(
+            a.redeemed_monthly_avg or a.orders_monthly_avg, 1),
+        "buyout_pct": a.buyout_pct, "image": a.image_thumb,
+    } for a in sorted(live, key=lambda a: a.orders_monthly_avg, reverse=True)[:5]]
+
+
 def _top_live_nm(analogs: list[ItemMetrics]) -> int | None:
     """Топ-живой по заказам/год — надёжный якорь для similar (не дохлый nms[0])."""
     live = [a for a in analogs if a.ok and a.in_stock and a.orders_year > 0]
@@ -314,15 +348,23 @@ def analyze(*, nms: list[int] | None = None, seed_nm: int | None = None,
 
     # ── популяция категории (один subject/items): денежный пол + сезонность + резервная ниша ──
     live = [a for a in analogs if a.ok and a.in_stock and a.orders_year > 0]
+    wb_subject = None
     if seed_metric and seed_metric.ok and seed_metric.in_stock and seed_metric.orders_year > 0:
         # Карточка по ссылке — наиболее точный якорь для выбора её категории.
         live_for_category = [seed_metric]
     else:
         live_for_category = live
     sid, sname, _ = vote_category(live_for_category, s.vote_share)
+    if sid is None and not seed_nm:
+        wb_subject = _wb_subject_fallback(nms or [])
+        if wb_subject:
+            sid = wb_subject[0]
     pop_rows = client.subject_items(sid, limit=200) if sid else []
     population_revenue = category_seasonality = None
     if pop_rows:
+        if wb_subject:
+            notes.append(f"в фото-выдаче {wb_subject[1]} из {wb_subject[2]} карточек одного предмета WB "
+                         f"(id={sid}), но MPStats ещё не видит их историю → оцениваю живой рынок предмета")
         population_revenue = [x for x in (_row_revenue_month(r) for r in pop_rows) if x > 0] or None
         category_seasonality = _seasonality_from_graphs(pop_rows)
         notes.append(f"срез категории «{sname}»: {len(pop_rows)} товаров (ден. пол + к-топам + сезонность)")
@@ -396,7 +438,9 @@ def analyze(*, nms: list[int] | None = None, seed_nm: int | None = None,
         # категория
         "subject_name": v.subject_name, "subject_id": v.subject_id, "vote_share": v.vote_share,
         "analog_count": v.analog_count, "purchase_price": purchase_price,
-        "reasons": v.reasons, "notes": notes, "examples": v.examples, "seed": seed,
+        "reasons": v.reasons, "notes": notes,
+        "examples": _context_examples(analogs, exclude_nm=seed_nm) if direct_item else v.examples,
+        "seed": seed,
         "seasonality": seasonality, "category_seasonality": category_seasonality,
     }
     _log_eval(seed_nm, nms, purchase_price, stores, result)
