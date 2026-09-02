@@ -242,7 +242,7 @@ def _wb_subject_fallback(nms: list[int], min_share: float = 0.6) -> tuple[int, i
     return (sid, count, len(subjects)) if count / len(subjects) >= min_share else None
 
 
-def _wb_subject_stem(nms: list[int]) -> str | None:
+def _wb_subject_name(nms: list[int]) -> str | None:
     """Короткий текстовый ключ предмета WB для защиты от чужих MPStats-категорий."""
     vote = _wb_subject_fallback(nms)
     if not vote:
@@ -252,10 +252,37 @@ def _wb_subject_stem(nms: list[int]) -> str | None:
         name = (load_subjects().get(vote[0]) or {}).get("name") or ""
     except Exception:  # noqa: BLE001
         return None
-    word = name.lower().strip()
+    word = name.strip()
     # Убираем только окончание множественного числа: «калькуляторы» →
     # «калькулятор», «мыши» → «мыш».
-    return word[:max(4, len(word) - 1)] if word else None
+    return word or None
+
+
+def _category_key(name: str | None) -> str:
+    """Key for exact category-title comparison, not a word search."""
+    return " ".join((name or "").casefold().replace("ё", "е").split())
+
+
+def _item_in_category(item: ItemMetrics, category_name: str | None) -> bool:
+    """MPStats may return a path such as 'Section / Category'; compare its leaf."""
+    expected = _category_key(category_name)
+    actual = _category_key((item.subject_name or "").split(" / ")[-1])
+    return bool(expected and actual == expected)
+
+
+def _mpstats_category(client: MPStats, wb_category_name: str | None) -> dict | None:
+    """Find the MPStats-owned category path with the same explicit category name."""
+    expected = _category_key(wb_category_name)
+    if not expected:
+        return None
+    for row in client.category_list():
+        if not isinstance(row, dict):
+            continue
+        name = row.get("name") or row.get("title")
+        path = row.get("path") or row.get("url")
+        if _category_key(name) == expected and path:
+            return {"name": str(name), "path": str(path)}
+    return None
 
 
 def _context_examples(items: list[ItemMetrics], *, exclude_nm: int | None = None) -> list[dict]:
@@ -294,7 +321,7 @@ def _identical_pool(client: MPStats, anchors: list[int], per_anchor: int = 30) -
 
 def collect_niche(client: MPStats, seed_nm: int | None, nms: list[int], limit: int = 40,
                   min_visual: int = 5, vote_share: float = 0.5,
-                  anchors_k: int = 5) -> tuple[list[ItemMetrics], list[str], str]:
+                  anchors_k: int = 5, photo_category: str | None = None) -> tuple[list[ItemMetrics], list[str], str]:
     """ПРИОРИТЕТ «ВИД» через AI-`identical`, ПУЛ по нескольким якорям из фото-выдачи.
     Отвечает на «продаётся ли ИМЕННО ТАКОЙ товар» (медведь→медведи, не бревно/Стич).
     Якоря = seed (если есть, самый точный) + топ-живые визуальные похожие.
@@ -330,9 +357,8 @@ def collect_niche(client: MPStats, seed_nm: int | None, nms: list[int], limit: i
         pool = _identical_pool(client, anchors)
         # AI-identical иногда объединяет товары по форме/назначению, но из
         # соседнего предмета. Для фото предмет уже надёжно определён WB.
-        photo_stem = _wb_subject_stem(nms or []) if nms and not seed_nm else None
-        if photo_stem:
-            pool = [m for m in pool if photo_stem in m.name.lower()]
+        if photo_category:
+            pool = [m for m in pool if _item_in_category(m, photo_category)]
         plive = [a for a in pool if a.ok and a.in_stock and a.orders_year > 0]
         psid, psname, _ = vote_category(plive, vote_share)
         if len(plive) >= min_visual and psid is not None:
@@ -348,9 +374,8 @@ def collect_niche(client: MPStats, seed_nm: int | None, nms: list[int], limit: i
         # `similar` шире visual/identical и может увести, например, от
         # калькуляторов к карточкам для счёта. Держим только предмет, который
         # WB определил по исходному фото.
-        photo_stem = _wb_subject_stem(nms or []) if nms and not seed_nm else None
-        if photo_stem:
-            sim = [m for m in sim if photo_stem in m.name.lower()]
+        if photo_category:
+            sim = [m for m in sim if _item_in_category(m, photo_category)]
         if _live_count(sim) >= 3:
             notes.append(f"вид узнан слабо (живых якорей {len(anchors)}) → каталожные «похожие» "
                          f"к SKU {anchor}: {len(sim)} — ШИРОКО, не про этот товар")
@@ -374,8 +399,10 @@ def analyze(*, nms: list[int] | None = None, seed_nm: int | None = None,
     # Для ссылки сначала забираем саму карточку. Раньше она подгружалась только
     # после расчёта и была видна в интерфейсе, но никак не влияла на вердикт.
     seed_metric = fetch_item_metrics(client, seed_nm) if seed_nm else None
+    photo_category = _wb_subject_name(nms or []) if nms and not seed_nm else None
     analogs, notes, niche_scope = collect_niche(client, seed_nm, nms or [], limit=limit,
-                                                min_visual=s.min_niche, vote_share=s.vote_share)
+                                                min_visual=s.min_niche, vote_share=s.vote_share,
+                                                photo_category=photo_category)
     if not analogs:
         return {"error": "Нет артикулов для оценки (визуальный поиск ничего не вернул)."}
 
@@ -388,7 +415,17 @@ def analyze(*, nms: list[int] | None = None, seed_nm: int | None = None,
     else:
         live_for_category = live
     sid, sname, _ = vote_category(live_for_category, s.vote_share)
-    pop_rows = client.subject_items(sid, limit=200) if sid else []
+    photo_mpstats_category = _mpstats_category(client, photo_category) if photo_category else None
+    if photo_category:
+        wb_subject = None
+        if photo_mpstats_category:
+            sname = photo_mpstats_category["name"]
+            pop_rows = client.category_items(photo_mpstats_category["path"], limit=200)
+        else:
+            pop_rows = []
+            notes.append(f"категория WB «{photo_category}» не найдена в справочнике MPStats")
+    else:
+        pop_rows = client.subject_items(sid, limit=200) if sid else []
     population_revenue = category_seasonality = None
     if pop_rows:
         if wb_subject:

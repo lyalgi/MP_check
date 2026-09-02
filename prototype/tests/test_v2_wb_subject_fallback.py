@@ -1,5 +1,6 @@
 from saol2.metrics import build_item_metrics_from_row
-from saol2.pipeline import _wb_subject_fallback
+from saol2.metrics import ItemMetrics
+from saol2.pipeline import _item_in_category, _mpstats_category, _wb_subject_fallback
 
 
 def test_uses_wb_subject_when_new_visual_cards_have_no_mpstats_history(monkeypatch):
@@ -17,3 +18,24 @@ def test_subject_row_counts_fbs_stock_as_available():
 
     assert item.balance == 7
     assert item.in_stock is True
+
+
+def test_mpstats_category_uses_its_own_path_for_the_exact_wb_name():
+    class Catalog:
+        def category_list(self):
+            return [
+                {"name": "Счетный материал", "path": "mpstats-counter-material"},
+                {"name": "Калькуляторы", "path": "mpstats-calculators"},
+            ]
+
+    assert _mpstats_category(Catalog(), "Калькуляторы") == {
+        "name": "Калькуляторы", "path": "mpstats-calculators"
+    }
+
+
+def test_exact_category_check_rejects_a_neighbouring_subject():
+    calculator = ItemMetrics(nm=1, subject_name="Калькуляторы")
+    counters = ItemMetrics(nm=2, subject_name="Канцелярия / Счетный материал")
+
+    assert _item_in_category(calculator, "Калькуляторы") is True
+    assert _item_in_category(counters, "Калькуляторы") is False
