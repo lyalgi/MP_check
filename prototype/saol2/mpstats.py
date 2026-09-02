@@ -26,6 +26,7 @@ import hashlib
 import json
 import logging
 import os
+import tempfile
 import time
 from datetime import date, timedelta
 from pathlib import Path
@@ -39,7 +40,10 @@ BASE = "https://mpstats.io/api/analytics/v1/wb"
 LIMITS_URL = "https://mpstats.io/api/user/report_api_limit"
 CATEGORIES_URL = "https://mpstats.io/api/wb/get/categories"  # дерево категорий (GET, работает)
 TIMEOUT = 12.0   # было 30 — один зависший запрос не должен стоить пол-оценки; медленный дропаем
-_CACHE_DIR = Path(os.environ.get("SAOL2_CACHE", Path(__file__).resolve().parent / ".cache"))
+# Vercel bundles application files as read-only.  Keep the best-effort cache in
+# the OS temporary directory, which is writable both locally and in serverless
+# runtimes (/tmp on Vercel).  The cache is intentionally ephemeral there.
+_CACHE_DIR = Path(os.environ.get("SAOL2_CACHE", Path(tempfile.gettempdir()) / "saol2-cache"))
 _CACHE_TTL = float(os.environ.get("SAOL2_CACHE_TTL", 24 * 3600))  # сутки
 
 
