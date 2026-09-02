@@ -324,6 +324,12 @@ def collect_niche(client: MPStats, seed_nm: int | None, nms: list[int], limit: i
     if anchor:
         rows = client.similar(int(anchor), limit=200, kind="similar")
         sim = [m for m in (build_item_metrics_from_row(r) for r in rows) if m.ok]
+        # `similar` шире visual/identical и может увести, например, от
+        # калькуляторов к карточкам для счёта. Держим только предмет, который
+        # WB определил по исходному фото.
+        photo_subject = _wb_subject_fallback(nms or []) if nms and not seed_nm else None
+        if photo_subject:
+            sim = [m for m in sim if m.subject_id == photo_subject[0]]
         if _live_count(sim) >= 3:
             notes.append(f"вид узнан слабо (живых якорей {len(anchors)}) → каталожные «похожие» "
                          f"к SKU {anchor}: {len(sim)} — ШИРОКО, не про этот товар")

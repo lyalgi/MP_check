@@ -358,7 +358,8 @@
     const trend = $("trend-line");
     if (d.trend_ratio != null) {
       const up = d.trend_ratio >= 1;
-      trend.textContent = `${up ? "↑" : "↓"} ${Math.abs(Math.round((d.trend_ratio - 1) * 100))}% к прошлому году`;
+      trend.className = `trend-line ${up ? "up" : "down"}`;
+      trend.textContent = `Тренд к прошлому году: ${up ? "↑" : "↓"} ${Math.abs(Math.round((d.trend_ratio - 1) * 100))}%`;
       trend.classList.remove("hidden");
     } else trend.classList.add("hidden");
     $("d-score").textContent = d.liquidity_score != null
