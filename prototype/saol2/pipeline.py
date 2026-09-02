@@ -253,7 +253,9 @@ def _wb_subject_stem(nms: list[int]) -> str | None:
     except Exception:  # noqa: BLE001
         return None
     word = name.lower().strip()
-    return word[:max(4, len(word) - 2)] if word else None
+    # Убираем только окончание множественного числа: «калькуляторы» →
+    # «калькулятор», «мыши» → «мыш».
+    return word[:max(4, len(word) - 1)] if word else None
 
 
 def _context_examples(items: list[ItemMetrics], *, exclude_nm: int | None = None) -> list[dict]:
