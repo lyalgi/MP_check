@@ -8,7 +8,6 @@
   const imageClear = $("image-clear");
   const priceInput = $("price");
   const seedUrl = $("seed-url");
-  const queryInput = $("query");
   const submitBtn = $("submit");
   const errorBox = $("error");
   const formCard = $("form");
@@ -214,24 +213,15 @@
     submitBtn.textContent = "Оцениваю…";
     startProgress();
 
-    const q = (queryInput.value || "").trim();
     const fd = new FormData();
     fd.append("purchase_price", String(price));
     if (file) {
       const blob = (await compressImage(file).catch(() => null)) || file;
       let nmIds = await phoneVisualSearch(blob);     // фото-поиск (мобильный IP)
-      if (nmIds && nmIds.length && q) {
-        const textIds = await phoneTextSearch(q);    // + текст (как «Уточните» в WB)
-        if (textIds) {
-          const inter = nmIds.filter((n) => textIds.has(n));
-          if (inter.length >= 3) nmIds = inter;      // сужаем фото→текст; мало пересечений → не сужаем
-        }
-      }
       if (nmIds && nmIds.length) fd.append("nm_ids", nmIds.join(","));
       else fd.append("image", blob, "photo.jpg");    // резервный путь: визуальный поиск на сервере
     }
     if (url) fd.append("seed_url", url);
-    if (q) fd.append("query", q);
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
     try {
@@ -402,7 +392,6 @@
   resetBtn.addEventListener("click", () => {
     resultCard.classList.add("hidden");
     formCard.classList.remove("hidden");
-    queryInput.value = "";
     clearPhoto();
     window.scrollTo({ top: 0, behavior: "smooth" });
   });
