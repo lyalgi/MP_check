@@ -380,12 +380,7 @@ def analyze(*, nms: list[int] | None = None, seed_nm: int | None = None,
             analogs = cat_metrics
             niche_scope = "type"
         elif wb_subject:
-            with_sales = sum(1 for m in cat_metrics if m.orders_year > 0)
-            with_stock = sum(1 for m in cat_metrics if m.in_stock)
-            notes.append(f"MPStats по предмету: {len(cat_metrics)} карточек, {with_sales} с продажами за год, "
-                         f"{with_stock} в наличии, {_live_count(cat_metrics)} одновременно живых")
-            if pop_rows:
-                notes.append("поля ответа MPStats: " + ", ".join(sorted(pop_rows[0])[:30]))
+            notes.append("MPStats вернул рынок предмета, но в нём недостаточно карточек с продажами и остатками")
 
     # ── фильтр по размеру из «Уточнения» (+ всегда разброс размеров ниши) ──
     analogs, size_spread = _apply_size(analogs, query, notes, s)

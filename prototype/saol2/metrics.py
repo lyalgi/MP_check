@@ -211,7 +211,10 @@ def build_item_metrics_from_row(row: dict) -> ItemMetrics:
     m.subject_name = row.get("subject")
     m.price = float(row.get("final_price") or 0)
     m.base_price = float(row.get("start_price") or row.get("basic_price") or 0)
-    m.balance = int(row.get("balance") or 0)
+    # В subject/items FBO и FBS остатки приходят раздельно. Раньше учитывался
+    # только FBO (`balance`), поэтому целые предметы с продажами через FBS
+    # ошибочно выглядели как «нет живых карточек».
+    m.balance = int(row.get("balance") or 0) + int(row.get("balance_fbs") or 0)
     m.in_stock = m.balance > 0
     m.buyout_pct = row.get("purchase")
     m.commission_fbo = row.get("commission_fbo")
