@@ -312,6 +312,11 @@ def collect_niche(client: MPStats, seed_nm: int | None, nms: list[int], limit: i
     # 1. ВИД — пул AI-identical по якорям (главный сигнал, узко/точно)
     if anchors:
         pool = _identical_pool(client, anchors)
+        # AI-identical иногда объединяет товары по форме/назначению, но из
+        # соседнего предмета. Для фото предмет уже надёжно определён WB.
+        photo_subject = _wb_subject_fallback(nms or []) if nms and not seed_nm else None
+        if photo_subject:
+            pool = [m for m in pool if m.subject_id == photo_subject[0]]
         plive = [a for a in pool if a.ok and a.in_stock and a.orders_year > 0]
         psid, psname, _ = vote_category(plive, vote_share)
         if len(plive) >= min_visual and psid is not None:
