@@ -246,20 +246,24 @@
     box.innerHTML = "";
     if (!s || !s.monthly) { box.classList.add("hidden"); return; }
     const hi = Math.max(...s.monthly) || 1;
-    const peakIdx = s.peak_month - 1, curIdx = s.current_month - 1;
+    const curIdx = s.current_month - 1;
+    const nearPeak = s.monthly.map(v => v >= hi * 0.9);
+    const peakLabels = s.monthly
+      .map((v, i) => nearPeak[i] ? MONTHS_RU[i] : null)
+      .filter(Boolean)
+      .join(", ");
     const bars = s.monthly.map((v, i) => {
       const h = Math.max(4, Math.round((v / hi) * 64));
       let cls = "sbar";
-      if (i === peakIdx) cls += " peak";
+      if (nearPeak[i]) cls += " peak";
       if (i === curIdx) cls += " cur";
-      const val = (i === peakIdx || i === curIdx) ? `<b class="sval">${Math.round(v)}</b>` : `<b class="sval empty"></b>`;
-      return `<div class="sb">${val}<i class="${cls}" style="height:${h}px"></i><span>${MONTHS_RU[i]}</span></div>`;
+      return `<div class="sb"><i class="${cls}" style="height:${h}px"></i><span>${MONTHS_RU[i]}</span></div>`;
     }).join("");
     const pct = Math.round((s.current_ratio || 0) * 100);
     const phase = pct >= 80 ? "пик сезона" : pct >= 50 ? "средний сезон" : "низкий сезон";
     box.innerHTML = `<div class="season-title">${title} · по ${s.based_on} товарам</div>`
       + `<div class="spark">${bars}</div>`
-      + `<div class="season-note">📈 Пик продаж — <b>${s.peak_label}</b>. Сейчас (${s.current_label}) — ${pct}% от пика, ${phase}.</div>`;
+      + `<div class="season-note">📈 Высокий сезон: <b>${peakLabels}</b>. Сейчас (${s.current_label}) — ${pct}% от максимума, ${phase}.</div>`;
     box.classList.remove("hidden");
   }
 
@@ -360,7 +364,7 @@
       ? (d.wb_parent_name ? `${d.wb_parent_name} / ${d.wb_subject_name}` : d.wb_subject_name) : "—";
     $("d-category").textContent = subj;
 
-    renderSeason("season-box", d.seasonality, "Сезонность похожих");
+    renderSeason("season-box", d.seasonality, "Сезонность выборки для оценки");
     renderSeason("season-cat-box", d.category_seasonality, "Сезонность всей категории на WB");
 
     const ex = $("examples");
