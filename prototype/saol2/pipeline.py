@@ -242,6 +242,20 @@ def _wb_subject_fallback(nms: list[int], min_share: float = 0.6) -> tuple[int, i
     return (sid, count, len(subjects)) if count / len(subjects) >= min_share else None
 
 
+def _wb_subject_stem(nms: list[int]) -> str | None:
+    """Короткий текстовый ключ предмета WB для защиты от чужих MPStats-категорий."""
+    vote = _wb_subject_fallback(nms)
+    if not vote:
+        return None
+    try:
+        from saol_core import load_subjects
+        name = (load_subjects().get(vote[0]) or {}).get("name") or ""
+    except Exception:  # noqa: BLE001
+        return None
+    word = name.lower().strip()
+    return word[:max(4, len(word) - 2)] if word else None
+
+
 def _context_examples(items: list[ItemMetrics], *, exclude_nm: int | None = None) -> list[dict]:
     """Карточки для показа рядом с прямой оценкой товара по ссылке."""
     live = [a for a in items if a.ok and a.in_stock and a.orders_year > 0 and a.nm != exclude_nm]
@@ -314,9 +328,9 @@ def collect_niche(client: MPStats, seed_nm: int | None, nms: list[int], limit: i
         pool = _identical_pool(client, anchors)
         # AI-identical иногда объединяет товары по форме/назначению, но из
         # соседнего предмета. Для фото предмет уже надёжно определён WB.
-        photo_subject = _wb_subject_fallback(nms or []) if nms and not seed_nm else None
-        if photo_subject:
-            pool = [m for m in pool if m.subject_id == photo_subject[0]]
+        photo_stem = _wb_subject_stem(nms or []) if nms and not seed_nm else None
+        if photo_stem:
+            pool = [m for m in pool if photo_stem in m.name.lower()]
         plive = [a for a in pool if a.ok and a.in_stock and a.orders_year > 0]
         psid, psname, _ = vote_category(plive, vote_share)
         if len(plive) >= min_visual and psid is not None:
@@ -332,9 +346,9 @@ def collect_niche(client: MPStats, seed_nm: int | None, nms: list[int], limit: i
         # `similar` шире visual/identical и может увести, например, от
         # калькуляторов к карточкам для счёта. Держим только предмет, который
         # WB определил по исходному фото.
-        photo_subject = _wb_subject_fallback(nms or []) if nms and not seed_nm else None
-        if photo_subject:
-            sim = [m for m in sim if m.subject_id == photo_subject[0]]
+        photo_stem = _wb_subject_stem(nms or []) if nms and not seed_nm else None
+        if photo_stem:
+            sim = [m for m in sim if photo_stem in m.name.lower()]
         if _live_count(sim) >= 3:
             notes.append(f"вид узнан слабо (живых якорей {len(anchors)}) → каталожные «похожие» "
                          f"к SKU {anchor}: {len(sim)} — ШИРОКО, не про этот товар")
@@ -372,10 +386,6 @@ def analyze(*, nms: list[int] | None = None, seed_nm: int | None = None,
     else:
         live_for_category = live
     sid, sname, _ = vote_category(live_for_category, s.vote_share)
-    if sid is None and not seed_nm:
-        wb_subject = _wb_subject_fallback(nms or [])
-        if wb_subject:
-            sid = wb_subject[0]
     pop_rows = client.subject_items(sid, limit=200) if sid else []
     population_revenue = category_seasonality = None
     if pop_rows:
