@@ -115,6 +115,7 @@ input[type="number"], input[type="text"] {
 }
 .scope-note.broad { color: #8a6d00; background: #fff7e0; border: 1px solid #ffe39a; }
 .scope-note.narrow { color: #1b7f4b; background: #e9f8ef; border: 1px solid #b7e6c9; }
+#examples-scope-warn { margin: 2px 0 12px; text-align: left; }
 .facts { display: grid; gap: 6px; margin: 6px 0 14px; }
 .fact {
   display: flex; justify-content: space-between; align-items: baseline; gap: 10px;
