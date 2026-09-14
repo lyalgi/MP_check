@@ -10,7 +10,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-title" content="Оценка товара" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-  <link rel="stylesheet" href="static/styles.css?v=20260902h" />
+  <link rel="stylesheet" href="static/styles.css?v=20260914a" />
 </head>
 <body>
   <header class="topbar">
@@ -20,15 +20,18 @@
 
   <main>
     <section id="form" class="card">
-      <label class="photo-btn" for="image">
-        <span class="photo-ico"></span>
-        <span class="photo-text">Сфотографировать товар</span>
-        <input type="file" id="image" accept="image/*" capture="environment" hidden />
-      </label>
-      <label class="photo-btn gallery" for="image-gallery">
-        <span class="photo-text">Загрузить из галереи</span>
-        <input type="file" id="image-gallery" accept="image/*" hidden />
-      </label>
+      <div id="photo-drop" class="photo-drop">
+        <label class="photo-btn" for="image">
+          <span class="photo-ico"></span>
+          <span class="photo-text">Сфотографировать товар</span>
+          <input type="file" id="image" accept="image/*" capture="environment" hidden />
+        </label>
+        <label class="photo-btn gallery" for="image-gallery">
+          <span class="photo-text">Загрузить из галереи</span>
+          <input type="file" id="image-gallery" accept="image/*" hidden />
+        </label>
+        <div class="photo-drop-hint">или перетащите фото сюда / вставьте Ctrl+V</div>
+      </div>
       <div id="image-preview" class="preview hidden"></div>
       <button type="button" id="image-clear" class="link hidden">Убрать фото</button>
 
@@ -86,6 +89,6 @@
     </section>
   </main>
 
-  <script src="static/app.js?v=20260902h" defer></script>
+  <script src="static/app.js?v=20260914a" defer></script>
 </body>
 </html>

@@ -167,6 +167,10 @@ summary { cursor: pointer; color: var(--accent); font-size: 15px; font-weight: 6
 .examples .ex-name { word-break: break-word; }
 
 .photo-btn.gallery { margin-top: 10px; background: transparent; border: 1px solid var(--line); }
+.photo-drop { border-radius: 16px; transition: background .15s ease, box-shadow .15s ease; }
+.photo-drop.drag-over { background: #eaf0fd; box-shadow: 0 0 0 2px var(--accent) inset; }
+.photo-drop.drag-over .photo-btn { border-color: var(--accent); }
+.photo-drop-hint { text-align: center; color: var(--muted); font-size: 12.5px; margin-top: 8px; }
 .seed-box { display: flex; gap: 12px; align-items: center; margin: 10px 0 12px; padding: 12px 14px; background: #eef3fd; border: 1px solid #cdddfb; border-radius: 12px; }
 .seed-img { width: 60px; height: 60px; border-radius: 10px; object-fit: cover; background: var(--line); flex: none; }
 .seed-info { min-width: 0; }

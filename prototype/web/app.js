@@ -153,16 +153,13 @@
     } catch (e) { return null; }
   }
 
-  // Фото может прийти из камеры (#image) или из галереи (#image-gallery).
+  // Фото может прийти из камеры (#image), из галереи (#image-gallery),
+  // из буфера обмена (вставка скопированного из Excel) или перетаскиванием файла.
+  let selectedFile = null;
   function currentFile() {
-    return (imageInput.files && imageInput.files[0])
-        || (galleryInput.files && galleryInput.files[0]) || null;
+    return selectedFile;
   }
-  function onPick(picked) {
-    // показываем превью выбранного; второй input очищаем, чтобы был один источник
-    if (picked === "camera") galleryInput.value = "";
-    else imageInput.value = "";
-    const f = currentFile();
+  function showPreview(f) {
     imagePreview.innerHTML = "";
     if (f) {
       const img = document.createElement("img");
@@ -175,17 +172,64 @@
       imageClear.classList.add("hidden");
     }
   }
+  function setFile(file) {
+    selectedFile = file || null;
+    showPreview(selectedFile);
+  }
+  function onPick(picked) {
+    // второй input очищаем, чтобы был один источник
+    if (picked === "camera") galleryInput.value = "";
+    else imageInput.value = "";
+    const f = (imageInput.files && imageInput.files[0])
+        || (galleryInput.files && galleryInput.files[0]) || null;
+    setFile(f);
+  }
   imageInput.addEventListener("change", () => onPick("camera"));
   galleryInput.addEventListener("change", () => onPick("gallery"));
 
   function clearPhoto() {
     imageInput.value = "";
     galleryInput.value = "";
-    imagePreview.innerHTML = "";
-    imagePreview.classList.add("hidden");
-    imageClear.classList.add("hidden");
+    setFile(null);
   }
   imageClear.addEventListener("click", clearPhoto);
+
+  // Вставка фото из буфера обмена (например, скопированного изображения из Excel).
+  document.addEventListener("paste", (e) => {
+    const items = e.clipboardData && e.clipboardData.items;
+    if (!items) return;
+    for (const item of items) {
+      if (item.kind === "file" && item.type.startsWith("image/")) {
+        const file = item.getAsFile();
+        if (file) { imageInput.value = ""; galleryInput.value = ""; setFile(file); }
+        e.preventDefault();
+        break;
+      }
+    }
+  });
+
+  // Перетаскивание файла из папки в зону загрузки фото.
+  const photoDrop = $("photo-drop");
+  if (photoDrop) {
+    ["dragenter", "dragover"].forEach((evt) => {
+      photoDrop.addEventListener(evt, (e) => {
+        e.preventDefault();
+        photoDrop.classList.add("drag-over");
+      });
+    });
+    ["dragleave", "dragend"].forEach((evt) => {
+      photoDrop.addEventListener(evt, () => photoDrop.classList.remove("drag-over"));
+    });
+    photoDrop.addEventListener("drop", (e) => {
+      e.preventDefault();
+      photoDrop.classList.remove("drag-over");
+      const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+      if (file && file.type.startsWith("image/")) {
+        imageInput.value = ""; galleryInput.value = "";
+        setFile(file);
+      }
+    });
+  }
 
   function showError(msg) { errorBox.textContent = msg; errorBox.classList.remove("hidden"); }
   function clearError() { errorBox.classList.add("hidden"); errorBox.textContent = ""; }
