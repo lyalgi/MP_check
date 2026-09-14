@@ -195,11 +195,16 @@ def score(
     stores: int | None = None,
     direct_item: bool = False,
     photo_nms: set[int] | None = None,
+    niche_scope: str | None = None,
 ) -> Verdict:
     """Главный расчёт. category_revenue — выручка/мес товаров категории (срез
     subject/items) для денежного пола и отношения-к-топу; trend_ratio — тренд ниши за год.
     photo_nms — nm, реально пришедшие по фото/AI-identical (не добор по категории/каталогу);
-    None означает «не отличаем» (все примеры считаются from_photo=True, обратная совместимость)."""
+    None означает «не отличаем» (все примеры считаются from_photo=True, обратная совместимость).
+    niche_scope — 'type' означает, что конкретный вид товара НЕ подтверждён и аналоги — это
+    подборка лидеров широкой категории (см. _top_live_sample/каталожный similar — оба берут
+    уже раскрученные бестселлеры). Тогда высокий спрос — это спрос ЛИДЕРОВ категории, а не
+    признак того, что конкретно ЭТОТ товар будет продаваться — вердикт капается ниже."""
     s = settings or Settings()
     v = Verdict()
 
@@ -313,6 +318,13 @@ def score(
     corroborated = (v.category_pct or 0) >= 80
     if "LOW_SAMPLE" in v.reasons and v.verdict in ("GREEN", "STRONG") and not corroborated:
         v.verdict = "YELLOW"; v.reasons.append("CAPPED_LOW_SAMPLE")
+
+    # Вид товара НЕ подтверждён (широкая категория) → аналоги — это лидеры ВСЕЙ категории,
+    # не конкретно этого товара. Их спрос почти всегда выглядит сильным (по построению —
+    # это топ-продавцы), так что высокий балл здесь измеряет силу категории, а не шанс
+    # конкретного товара. Не даём этому превращаться в уверенное «закупать».
+    if niche_scope == "type" and v.verdict in ("GREEN", "STRONG"):
+        v.verdict = "YELLOW"; v.reasons.append("CAPPED_BROAD_SCOPE")
 
     # балл не противоречит вердикту: жёсткий RED держим в красной зоне
     if v.verdict == "RED" and v.score_100 is not None and v.score_100 >= s.score_yellow:

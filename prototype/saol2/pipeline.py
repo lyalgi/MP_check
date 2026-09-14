@@ -581,7 +581,8 @@ def analyze(*, nms: list[int] | None = None, seed_nm: int | None = None,
     seasonality, trend_ratio = _niche_seasonality(client, score_items, sid)
 
     v = score(score_items, purchase_price, settings=s, category_revenue=population_revenue,
-              trend_ratio=trend_ratio, stores=stores, direct_item=direct_item, photo_nms=photo_nms)
+              trend_ratio=trend_ratio, stores=stores, direct_item=direct_item, photo_nms=photo_nms,
+              niche_scope=niche_scope)
 
     seed = None
     if seed_metric:
