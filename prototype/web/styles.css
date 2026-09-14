@@ -165,6 +165,11 @@ summary { cursor: pointer; color: var(--accent); font-size: 15px; font-weight: 6
 .examples .ex-img { width: 56px; height: 56px; border-radius: 10px; object-fit: cover; background: var(--line); flex: none; }
 .examples .ex-body { display: flex; flex-direction: column; min-width: 0; }
 .examples .ex-name { word-break: break-word; }
+.examples li.backfill { opacity: 0.6; }
+.examples .ex-badge {
+  display: inline-block; margin-top: 3px; font-size: 11px; color: var(--muted);
+  background: #f0f4fa; border-radius: 6px; padding: 2px 6px; width: fit-content;
+}
 
 .photo-btn.gallery { margin-top: 10px; background: transparent; border: 1px solid var(--line); }
 .photo-drop { border-radius: 16px; transition: background .15s ease, box-shadow .15s ease; }

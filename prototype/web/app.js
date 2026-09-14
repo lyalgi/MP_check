@@ -424,11 +424,12 @@
         : (a.feedbacks != null ? `${a.feedbacks} отзывов` : ""));
       const bo = a.buyout_pct != null ? ` · выкуп ${Math.round(a.buyout_pct)}%` : "";
       const li = document.createElement("li");
-      li.className = "ex-item";
+      li.className = a.from_photo === false ? "ex-item backfill" : "ex-item";
       const img = a.image ? `<img class="ex-img" src="${a.image}" loading="lazy" alt="">` : "";
+      const badge = a.from_photo === false ? `<span class="ex-badge">не по фото</span>` : "";
       li.innerHTML = `<a href="${a.url}" target="_blank" rel="noopener">${img}`
         + `<span class="ex-body"><span class="ex-name">${a.name || a.nm_id}</span>`
-        + `<span class="meta">${Math.round(price)} ₽ · ${ord}${bo}</span></span></a>`;
+        + `<span class="meta">${Math.round(price)} ₽ · ${ord}${bo}</span>${badge}</span></a>`;
       ex.appendChild(li);
     }
 

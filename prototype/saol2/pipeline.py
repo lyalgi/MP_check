@@ -263,6 +263,44 @@ def _wb_subject_name(nms: list[int]) -> str | None:
     return word or None
 
 
+def _prefilter_wb_candidates(nms: list[int], keep: int = 10) -> tuple[list[int], list[str]]:
+    """Отсеиваем по бесплатным данным WB то, что сам WB считает мёртвым (нет остатка
+    или ни одного отзыва), ДО того как тратить на карточку параллельный запрос к MPStats.
+    Порядок релевантности визуального поиска не трогаем — цену сюда сознательно НЕ
+    добавляем (иначе market_price_median в score() зависел бы от того, как мы же отобрали
+    аналоги, а не от независимого состояния рынка)."""
+    notes: list[str] = []
+    if not nms:
+        return nms, notes
+    try:
+        from saol_core import fetch_cards
+        cards = {int(c["id"]): c for c in fetch_cards(nms[:24]) if c.get("id")}
+    except Exception:  # noqa: BLE001 — публичный WB, только предфильтр, не критично
+        return nms, notes
+    if not cards:
+        return nms, notes
+
+    def _alive(nm: int) -> bool:
+        c = cards.get(nm)
+        if not c:
+            return True  # карточки не было в ответе — не отсеиваем, решит MPStats дальше
+        feedbacks = c.get("feedbacks") or 0
+        stock = c.get("totalQuantity")
+        if stock is None:
+            stock = sum((q.get("qty") or 0) for s in (c.get("sizes") or []) for q in (s.get("stocks") or []))
+        return bool(feedbacks > 0 and stock > 0)
+
+    filtered = [n for n in nms if _alive(n)]
+    if len(filtered) < 3:
+        # Фильтр слишком агрессивен для этой выдачи (например, все карточки совсем
+        # новые и без отзывов, но реальные) — не режем, решит MPStats дальше по цепочке.
+        return nms, notes
+    dropped = len(nms) - len(filtered)
+    if dropped:
+        notes.append(f"{dropped} из {len(nms)} по фото — без остатка/отзывов на WB → не отправлены в MPStats")
+    return filtered[:keep], notes
+
+
 def _category_key(name: str | None) -> str:
     """Key for exact category-title comparison, not a word search."""
     return " ".join((name or "").casefold().replace("ё", "е").split())
@@ -320,7 +358,7 @@ def _context_examples(items: list[ItemMetrics], *, exclude_nm: int | None = None
         "nm": a.nm, "name": a.name[:50], "price": a.price,
         "orders_month": a.orders_monthly_avg, "redeemed_month": round(
             a.redeemed_monthly_avg or a.orders_monthly_avg, 1),
-        "buyout_pct": a.buyout_pct, "image": a.image_thumb,
+        "buyout_pct": a.buyout_pct, "image": a.image_thumb, "from_photo": True,
     } for a in sorted(live, key=lambda a: a.orders_monthly_avg, reverse=True)[:5]]
 
 
@@ -442,12 +480,17 @@ def analyze(*, nms: list[int] | None = None, seed_nm: int | None = None,
     # после расчёта и была видна в интерфейсе, но никак не влияла на вердикт.
     seed_metric = fetch_item_metrics(client, seed_nm) if seed_nm else None
     photo_category = _wb_subject_name(nms or []) if nms and not seed_nm else None
-    analogs, notes, niche_scope = collect_niche(client, seed_nm, nms or [], limit=limit,
+    prefiltered_nms, prefilter_notes = _prefilter_wb_candidates(nms or [])
+    analogs, notes, niche_scope = collect_niche(client, seed_nm, prefiltered_nms, limit=limit,
                                                 min_visual=s.min_niche, vote_share=s.vote_share,
                                                 min_orders_year=s.min_orders_year,
                                                 photo_category=photo_category)
+    notes = prefilter_notes + notes
     if not analogs:
         return {"error": "Нет артикулов для оценки (визуальный поиск ничего не вернул)."}
+    # снимок ДО категориального добора — эти nm реально пришли по фото/AI-identical,
+    # остальное (добор по категории) в примерах помечается как "не по фото"
+    photo_nms = {a.nm for a in analogs}
 
     # ── популяция категории (один subject/items): денежный пол + сезонность + резервная ниша ──
     live = [a for a in analogs if _is_live(a, s.min_orders_year)]
@@ -510,7 +553,7 @@ def analyze(*, nms: list[int] | None = None, seed_nm: int | None = None,
     seasonality, trend_ratio = _niche_seasonality(client, score_items, sid)
 
     v = score(score_items, purchase_price, settings=s, category_revenue=population_revenue,
-              trend_ratio=trend_ratio, stores=stores, direct_item=direct_item)
+              trend_ratio=trend_ratio, stores=stores, direct_item=direct_item, photo_nms=photo_nms)
 
     seed = None
     if seed_metric:

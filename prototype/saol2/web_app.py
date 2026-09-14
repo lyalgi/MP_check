@@ -113,6 +113,7 @@ def _to_ui(r: dict) -> dict:
             "orders_month": e.get("orders_month"),
             "redeemed_month": e.get("redeemed_month"),
             "buyout_pct": e.get("buyout_pct"),
+            "from_photo": e.get("from_photo", True),
         })
 
     seed = r.get("seed") or {}

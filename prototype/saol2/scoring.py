@@ -194,9 +194,12 @@ def score(
     trend_ratio: float | None = None,
     stores: int | None = None,
     direct_item: bool = False,
+    photo_nms: set[int] | None = None,
 ) -> Verdict:
     """Главный расчёт. category_revenue — выручка/мес товаров категории (срез
-    subject/items) для денежного пола и отношения-к-топу; trend_ratio — тренд ниши за год."""
+    subject/items) для денежного пола и отношения-к-топу; trend_ratio — тренд ниши за год.
+    photo_nms — nm, реально пришедшие по фото/AI-identical (не добор по категории/каталогу);
+    None означает «не отличаем» (все примеры считаются from_photo=True, обратная совместимость)."""
     s = settings or Settings()
     v = Verdict()
 
@@ -333,5 +336,6 @@ def score(
             "nm": a.nm, "name": a.name[:50], "price": a.price,
             "orders_month": a.orders_monthly_avg, "redeemed_month": round(_redeemed_month(a), 1),
             "buyout_pct": a.buyout_pct, "image": a.image_thumb,
+            "from_photo": True if photo_nms is None else a.nm in photo_nms,
         })
     return v
