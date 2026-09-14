@@ -271,18 +271,41 @@ def _item_in_category(item: ItemMetrics, category_name: str | None) -> bool:
 
 
 def _mpstats_category(client: MPStats, wb_category_name: str | None) -> dict | None:
-    """Find the MPStats-owned category path with the same explicit category name."""
+    """Find the MPStats-owned category path matching the WB subject name.
+
+    WB's subject names are more specific than MPStats leaf names («Пуховики
+    для малышей» vs MPStats' «Пуховик»), so an exact match often misses a
+    perfectly good category. Falls back to a stem match (one name is a
+    prefix of the other — handles РУ singular/plural) and, among several
+    such candidates (пол/возраст веток), picks the path sharing the most
+    words with the WB name."""
     expected = _category_key(wb_category_name)
     if not expected:
         return None
+    expected_words = set(expected.split())
+    stem_candidates: list[tuple[str, str]] = []
     for row in client.category_list():
         if not isinstance(row, dict):
             continue
         name = row.get("name") or row.get("title")
         path = row.get("path") or row.get("url")
-        if _category_key(name) == expected and path:
+        if not path:
+            continue
+        key = _category_key(name)
+        if key == expected:
             return {"name": str(name), "path": str(path)}
-    return None
+        if key and (expected.startswith(key) or key.startswith(expected)):
+            stem_candidates.append((str(name), str(path)))
+    if not stem_candidates:
+        return None
+
+    def _overlap(item: tuple[str, str]) -> int:
+        _, path = item
+        path_words = set(_category_key(path.replace("/", " ")).split())
+        return len(expected_words & path_words)
+
+    name, path = max(stem_candidates, key=_overlap)
+    return {"name": name, "path": path}
 
 
 def _context_examples(items: list[ItemMetrics], *, exclude_nm: int | None = None) -> list[dict]:
@@ -314,7 +337,11 @@ def _identical_pool(client: MPStats, anchors: list[int], per_anchor: int = 30) -
     (когтеточка→2 живых), пул по топ-K живым добивает (→62), не теряя точности.
     Каталожный `similar` (бестселлеры сабджекта = «бревно/Стич») сюда НЕ подмешиваем."""
     seen: dict[int, ItemMetrics] = {}
-    with ThreadPoolExecutor(max_workers=16) as pool:
+    # `identical` — «тяжёлый» отчёт MPStats: он режет ПАРАЛЛЕЛЬНЫЕ запросы к себе
+    # отдельно от дневной квоты («Слишком много одновременных запросов по этому
+    # отчёту»), заметно строже, чем к items/full. 16 воркеров на anchors_k=5
+    # якорей гарантированно в это упирались — 4 достаточно и почти не бьётся.
+    with ThreadPoolExecutor(max_workers=4) as pool:
         for rows in pool.map(
             lambda a: client.similar(int(a), limit=per_anchor, kind="identical") or [], anchors
         ):

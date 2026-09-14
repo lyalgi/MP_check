@@ -142,15 +142,32 @@ class MPStats:
                 # таймаут/прочее — НЕ повторяем (повтор = ещё +TIMEOUT, дорого)
                 logger.warning("MPStats транспорт упал: %s", e)
                 return None
-        try:
-            data = r.json()
-        except ValueError:
-            logger.warning("MPStats вернул не JSON (%s): %s", r.status_code, r.text[:200])
-            return None
-        # MPStats кладёт ошибку в {"message": ..., "errors": ...}
-        if isinstance(data, dict) and "message" in data and "data" not in data:
-            logger.warning("MPStats ошибка: %s", data.get("message"))
-            return None
+        for attempt in range(2):
+            try:
+                data = r.json()
+            except ValueError:
+                logger.warning("MPStats вернул не JSON (%s): %s", r.status_code, r.text[:200])
+                return None
+            # MPStats кладёт ошибку в {"message": ..., "errors": ...}
+            if isinstance(data, dict) and "message" in data and "data" not in data:
+                msg = data.get("message") or ""
+                # `similar`/`identical` — «тяжёлый» отчёт: MPStats ограничивает
+                # ПАРАЛЛЕЛЬНЫЕ запросы к нему отдельно от дневной квоты, а мы
+                # бьём его собственным ThreadPoolExecutor. Ошибка транзиентная —
+                # короткая пауза и один повтор почти всегда проходят.
+                if "одновременных запрос" in msg and attempt == 0:
+                    time.sleep(1.0)
+                    try:
+                        if method == "GET":
+                            r = self._session.get(url, timeout=TIMEOUT)
+                        else:
+                            r = self._session.post(url, data=payload, timeout=TIMEOUT)
+                    except requests.RequestException:
+                        return None
+                    continue
+                logger.warning("MPStats ошибка: %s", msg)
+                return None
+            break
         if self.use_cache:
             _cache_put(cache_key, data)
         return data
