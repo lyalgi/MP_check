@@ -149,10 +149,18 @@ def _signature(message: str) -> str:
 
 
 def visual_search(image_bytes: bytes) -> list[int]:
-    """Фото → артикулы визуально похожих карточек WB."""
+    """Фото → артикулы визуально похожих карточек WB.
+
+    Без User-Agent requests шлёт свой дефолтный ("python-requests/x.x") — похоже,
+    WB отдаёт по нему заметно менее релевантную/старую выдачу, чем настоящему
+    клиенту (браузер/приложение): на одном и том же фото порядок топ-24 (а с ним
+    и итоговый вердикт: type/UNKNOWN вместо vid/GREEN) резко расходился с тем, что
+    возвращает браузерный `phoneVisualSearch` в app.js на тот же эндпоинт."""
     for attempt in range(2):
         ruid = str(uuid.uuid4())
         headers = {
+            "User-Agent": WB_UA,
+            "Accept": "*/*",
             "Signature": _signature(f"RequestUUID:{ruid}"),
             "RequestUUID": ruid,
             "test-properties": "ab_testing=false",
