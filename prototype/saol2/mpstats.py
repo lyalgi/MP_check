@@ -106,6 +106,12 @@ class MPStats:
         self.token = token or load_token()
         self.use_cache = use_cache
         self._session = requests.Session()
+        # pipeline.py fetches analogs with up to 16 parallel workers; the
+        # default adapter pool (10) is smaller, so it churns connections
+        # under load ("Connection pool is full, discarding connection").
+        adapter = requests.adapters.HTTPAdapter(pool_connections=16, pool_maxsize=16)
+        self._session.mount("https://", adapter)
+        self._session.mount("http://", adapter)
         self._session.headers.update({
             "X-Mpstats-TOKEN": self.token,
             "Content-Type": "application/json",
