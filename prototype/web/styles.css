@@ -166,6 +166,11 @@ summary { cursor: pointer; color: var(--accent); font-size: 15px; font-weight: 6
 .examples .ex-body { display: flex; flex-direction: column; min-width: 0; }
 .examples .ex-name { word-break: break-word; }
 .examples li.backfill { opacity: 0.6; }
+.examples li.ex-group-head {
+  padding: 14px 0 6px; border-bottom: none; font-size: 12.5px; font-weight: 700;
+  color: var(--muted); text-transform: uppercase; letter-spacing: .4px;
+}
+.examples li.ex-group-head:first-child { padding-top: 0; }
 .examples .ex-badge {
   display: inline-block; margin-top: 3px; font-size: 11px; color: var(--muted);
   background: #f0f4fa; border-radius: 6px; padding: 2px 6px; width: fit-content;

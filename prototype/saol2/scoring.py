@@ -330,12 +330,22 @@ def score(
         if cu and cu > 0:
             v.potential_margin = round(v.test_units * cu)
 
-    # ── примеры для закупщика: топ-5 по выкупам ──
-    for a in sorted(cat, key=_redeemed_month, reverse=True)[:5]:
-        v.examples.append({
-            "nm": a.nm, "name": a.name[:50], "price": a.price,
-            "orders_month": a.orders_monthly_avg, "redeemed_month": round(_redeemed_month(a), 1),
-            "buyout_pct": a.buyout_pct, "image": a.image_thumb,
-            "from_photo": True if photo_nms is None else a.nm in photo_nms,
-        })
+    # ── примеры для закупщика: лидеры ниши + типичные (близкие к медиане) ──
+    # Раньше показывали только топ-5 по выкупам: цифры (условно 300/мес) резко
+    # расходились с «средние продажи похожих: 25/мес» выше и создавали ложное
+    # впечатление о размере рынка. Показываем обе группы явно, а не только лидеров —
+    # сам вердикт по-прежнему считается по медиане ВСЕГО пула cat, а не по этим карточкам.
+    leader_examples = sorted(cat, key=_redeemed_month, reverse=True)[:3]
+    leader_nms = {a.nm for a in leader_examples}
+    typical_pool = [a for a in cat if a.nm not in leader_nms]
+    typical_examples = sorted(typical_pool, key=lambda a: abs(_redeemed_month(a) - r_med))[:3]
+    for group, items in (("leader", leader_examples), ("typical", typical_examples)):
+        for a in items:
+            v.examples.append({
+                "nm": a.nm, "name": a.name[:50], "price": a.price,
+                "orders_month": a.orders_monthly_avg, "redeemed_month": round(_redeemed_month(a), 1),
+                "buyout_pct": a.buyout_pct, "image": a.image_thumb,
+                "from_photo": True if photo_nms is None else a.nm in photo_nms,
+                "group": group,
+            })
     return v

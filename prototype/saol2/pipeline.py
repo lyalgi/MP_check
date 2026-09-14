@@ -352,14 +352,30 @@ def _mpstats_category(client: MPStats, wb_category_name: str | None) -> dict | N
 
 
 def _context_examples(items: list[ItemMetrics], *, exclude_nm: int | None = None) -> list[dict]:
-    """Карточки для показа рядом с прямой оценкой товара по ссылке."""
+    """Карточки для показа рядом с прямой оценкой товара по ссылке.
+
+    Лидеры + типичные (близкие к медиане) отдельно — просто топ-5 самых продаваемых
+    создаёт ложное впечатление о размере рынка (см. scoring.score())."""
     live = [a for a in items if a.ok and a.in_stock and a.orders_year > 0 and a.nm != exclude_nm]
-    return [{
-        "nm": a.nm, "name": a.name[:50], "price": a.price,
-        "orders_month": a.orders_monthly_avg, "redeemed_month": round(
-            a.redeemed_monthly_avg or a.orders_monthly_avg, 1),
-        "buyout_pct": a.buyout_pct, "image": a.image_thumb, "from_photo": True,
-    } for a in sorted(live, key=lambda a: a.orders_monthly_avg, reverse=True)[:5]]
+
+    def _val(a: ItemMetrics) -> float:
+        return a.redeemed_monthly_avg or a.orders_monthly_avg
+
+    med = statistics.median([_val(a) for a in live]) if live else 0.0
+    leader_examples = sorted(live, key=_val, reverse=True)[:3]
+    leader_nms = {a.nm for a in leader_examples}
+    typical_pool = [a for a in live if a.nm not in leader_nms]
+    typical_examples = sorted(typical_pool, key=lambda a: abs(_val(a) - med))[:3]
+    out: list[dict] = []
+    for group, group_items in (("leader", leader_examples), ("typical", typical_examples)):
+        for a in group_items:
+            out.append({
+                "nm": a.nm, "name": a.name[:50], "price": a.price,
+                "orders_month": a.orders_monthly_avg, "redeemed_month": round(_val(a), 1),
+                "buyout_pct": a.buyout_pct, "image": a.image_thumb,
+                "from_photo": True, "group": group,
+            })
+    return out
 
 
 def _top_live_nm(analogs: list[ItemMetrics], min_orders_year: float) -> int | None:

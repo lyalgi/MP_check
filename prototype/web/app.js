@@ -414,23 +414,38 @@
     const ex = $("examples");
     const exHead = $("examples-head");
     exHead.textContent = d.niche_scope === "item"
-      ? "Самые продаваемые похожие товары — контекст, не влияют на вердикт"
-      : "Самые продаваемые похожие товары на WB";
+      ? "Похожие товары на WB — контекст, не влияют на вердикт"
+      : "Похожие товары на WB";
     ex.innerHTML = "";
-    for (const a of (d.examples || []).slice(0, 6)) {
-      const price = a.sale_price ?? a.price ?? 0;
-      const ord = a.orders_month != null ? `${Math.round(a.orders_month)} зак/мес`
-        : (a.redeemed_month != null ? `${Math.round(a.redeemed_month)} вык/мес`
-        : (a.feedbacks != null ? `${a.feedbacks} отзывов` : ""));
-      const bo = a.buyout_pct != null ? ` · выкуп ${Math.round(a.buyout_pct)}%` : "";
-      const li = document.createElement("li");
-      li.className = a.from_photo === false ? "ex-item backfill" : "ex-item";
-      const img = a.image ? `<img class="ex-img" src="${a.image}" loading="lazy" alt="">` : "";
-      const badge = a.from_photo === false ? `<span class="ex-badge">не по фото</span>` : "";
-      li.innerHTML = `<a href="${a.url}" target="_blank" rel="noopener">${img}`
-        + `<span class="ex-body"><span class="ex-name">${a.name || a.nm_id}</span>`
-        + `<span class="meta">${Math.round(price)} ₽ · ${ord}${bo}</span>${badge}</span></a>`;
-      ex.appendChild(li);
+    // Раньше показывали только топ-5 самых продаваемых — рядом со «средними продажами
+    // похожих» (медиана по всем аналогам) это выглядело как противоречие (лидер 300/мес,
+    // а «в среднем» — 25/мес). Показываем обе группы явно и подписанно.
+    const groups = [
+      { key: "leader", label: "Лидеры ниши" },
+      { key: "typical", label: "Типичные (близкие к медиане)" },
+    ];
+    for (const g of groups) {
+      const items = (d.examples || []).filter((a) => (a.group || "leader") === g.key);
+      if (!items.length) continue;
+      const head = document.createElement("li");
+      head.className = "ex-group-head";
+      head.textContent = g.label;
+      ex.appendChild(head);
+      for (const a of items) {
+        const price = a.sale_price ?? a.price ?? 0;
+        const ord = a.orders_month != null ? `${Math.round(a.orders_month)} зак/мес`
+          : (a.redeemed_month != null ? `${Math.round(a.redeemed_month)} вык/мес`
+          : (a.feedbacks != null ? `${a.feedbacks} отзывов` : ""));
+        const bo = a.buyout_pct != null ? ` · выкуп ${Math.round(a.buyout_pct)}%` : "";
+        const li = document.createElement("li");
+        li.className = a.from_photo === false ? "ex-item backfill" : "ex-item";
+        const img = a.image ? `<img class="ex-img" src="${a.image}" loading="lazy" alt="">` : "";
+        const badge = a.from_photo === false ? `<span class="ex-badge">не по фото</span>` : "";
+        li.innerHTML = `<a href="${a.url}" target="_blank" rel="noopener">${img}`
+          + `<span class="ex-body"><span class="ex-name">${a.name || a.nm_id}</span>`
+          + `<span class="meta">${Math.round(price)} ₽ · ${ord}${bo}</span>${badge}</span></a>`;
+        ex.appendChild(li);
+      }
     }
 
     formCard.classList.add("hidden");
