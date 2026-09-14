@@ -216,8 +216,13 @@ def collect_analogs(client: MPStats, nms: list[int], limit: int) -> tuple[list[I
     return analogs, notes
 
 
-def _live_count(analogs: list[ItemMetrics]) -> int:
-    return sum(1 for a in analogs if a.ok and a.in_stock and a.orders_year > 0)
+def _is_live(a: ItemMetrics, min_orders_year: float) -> bool:
+    """Аналог достаточно продаётся, чтобы быть сигналом спроса (не просто в наличии)."""
+    return bool(a.ok and a.in_stock and a.orders_year >= min_orders_year)
+
+
+def _live_count(analogs: list[ItemMetrics], min_orders_year: float) -> int:
+    return sum(1 for a in analogs if _is_live(a, min_orders_year))
 
 
 def _wb_subject_fallback(nms: list[int], min_share: float = 0.6) -> tuple[int, int, int] | None:
@@ -319,41 +324,44 @@ def _context_examples(items: list[ItemMetrics], *, exclude_nm: int | None = None
     } for a in sorted(live, key=lambda a: a.orders_monthly_avg, reverse=True)[:5]]
 
 
-def _top_live_nm(analogs: list[ItemMetrics]) -> int | None:
+def _top_live_nm(analogs: list[ItemMetrics], min_orders_year: float) -> int | None:
     """Топ-живой по заказам/год — надёжный якорь для similar (не дохлый nms[0])."""
-    live = [a for a in analogs if a.ok and a.in_stock and a.orders_year > 0]
+    live = [a for a in analogs if _is_live(a, min_orders_year)]
     return max(live, key=lambda a: a.orders_year).nm if live else None
 
 
-def _top_live_sample(items: list[ItemMetrics], cap: int = 40) -> list[ItemMetrics]:
+def _top_live_sample(items: list[ItemMetrics], min_orders_year: float, cap: int = 40) -> list[ItemMetrics]:
     """One shared sample for the fallback score, chart, and displayed leaders."""
-    live = [a for a in items if a.ok and a.in_stock and a.orders_year > 0]
+    live = [a for a in items if _is_live(a, min_orders_year)]
     return sorted(live, key=lambda a: a.orders_monthly_avg, reverse=True)[:cap]
 
 
-def _identical_pool(client: MPStats, anchors: list[int], per_anchor: int = 30) -> list[ItemMetrics]:
+def _identical_pool(client: MPStats, anchors: list[int], min_live: int, min_orders_year: float,
+                     per_anchor: int = 30, max_anchors: int = 3) -> list[ItemMetrics]:
     """ВИД через AI-`identical` MPStats, ПУЛ по нескольким якорям из фото-выдачи (идея
     Кристины): уникальные карточки именно ЭТОГО вида. identical по 1 якорю бывает жидким
     (когтеточка→2 живых), пул по топ-K живым добивает (→62), не теряя точности.
-    Каталожный `similar` (бестселлеры сабджекта = «бревно/Стич») сюда НЕ подмешиваем."""
+    Каталожный `similar` (бестселлеры сабджекта = «бревно/Стич») сюда НЕ подмешиваем.
+
+    `identical` — «тяжёлый» отчёт MPStats: он режет ПАРАЛЛЕЛЬНЫЕ запросы к себе отдельно от
+    дневной квоты («Слишком много одновременных запросов по этому отчёту»), заметно строже,
+    чем к items/full. Поэтому идём ПОСЛЕДОВАТЕЛЬНО по якорям (не больше max_anchors) и
+    останавливаемся, как только набрали достаточно живых — быстрее в average case и почти не
+    бьётся в лимит."""
     seen: dict[int, ItemMetrics] = {}
-    # `identical` — «тяжёлый» отчёт MPStats: он режет ПАРАЛЛЕЛЬНЫЕ запросы к себе
-    # отдельно от дневной квоты («Слишком много одновременных запросов по этому
-    # отчёту»), заметно строже, чем к items/full. 16 воркеров на anchors_k=5
-    # якорей гарантированно в это упирались — 4 достаточно и почти не бьётся.
-    with ThreadPoolExecutor(max_workers=4) as pool:
-        for rows in pool.map(
-            lambda a: client.similar(int(a), limit=per_anchor, kind="identical") or [], anchors
-        ):
-            for r in rows:
-                m = build_item_metrics_from_row(r)
-                if m.ok and m.nm not in seen:
-                    seen[m.nm] = m
+    for a in anchors[:max_anchors]:
+        rows = client.similar(int(a), limit=per_anchor, kind="identical") or []
+        for r in rows:
+            m = build_item_metrics_from_row(r)
+            if m.ok and m.nm not in seen:
+                seen[m.nm] = m
+        if sum(1 for m in seen.values() if _is_live(m, min_orders_year)) >= min_live:
+            break
     return list(seen.values())
 
 
 def collect_niche(client: MPStats, seed_nm: int | None, nms: list[int], limit: int = 40,
-                  min_visual: int = 5, vote_share: float = 0.5,
+                  min_visual: int = 5, vote_share: float = 0.5, min_orders_year: float = 20.0,
                   anchors_k: int = 5, photo_category: str | None = None) -> tuple[list[ItemMetrics], list[str], str]:
     """ПРИОРИТЕТ «ВИД» через AI-`identical`, ПУЛ по нескольким якорям из фото-выдачи.
     Отвечает на «продаётся ли ИМЕННО ТАКОЙ товар» (медведь→медведи, не бревно/Стич).
@@ -364,7 +372,7 @@ def collect_niche(client: MPStats, seed_nm: int | None, nms: list[int], limit: i
     Возвращает (ниша, заметки, scope), где scope — насколько оценка «про этот товар»:
     'vid' (узнан вид, узко/точно) | 'type' (вид НЕ распознан → широко по категории)."""
     va, notes = collect_analogs(client, nms or [], limit=limit)
-    vlive = sorted([a for a in va if a.ok and a.in_stock and a.orders_year > 0],
+    vlive = sorted([a for a in va if _is_live(a, min_orders_year)],
                    key=lambda a: a.orders_year, reverse=True)
 
     # 0. РАЗВИЛКА ПО КАТЕГОРИИ: одежда/текстиль → «вид» = ПРИНТ, его держит ВИЗУАЛ (siglip2),
@@ -387,12 +395,12 @@ def collect_niche(client: MPStats, seed_nm: int | None, nms: list[int], limit: i
 
     # 1. ВИД — пул AI-identical по якорям (главный сигнал, узко/точно)
     if anchors:
-        pool = _identical_pool(client, anchors)
+        pool = _identical_pool(client, anchors, min_live=min_visual, min_orders_year=min_orders_year)
         # AI-identical иногда объединяет товары по форме/назначению, но из
         # соседнего предмета. Для фото предмет уже надёжно определён WB.
         if photo_category:
             pool = [m for m in pool if _item_in_category(m, photo_category)]
-        plive = [a for a in pool if a.ok and a.in_stock and a.orders_year > 0]
+        plive = [a for a in pool if _is_live(a, min_orders_year)]
         psid, psname, _ = vote_category(plive, vote_share)
         if len(plive) >= min_visual and psid is not None:
             notes.append(f"оценка по ВИДУ (AI-identical, пул по {len(anchors)} якорям): "
@@ -400,7 +408,8 @@ def collect_niche(client: MPStats, seed_nm: int | None, nms: list[int], limit: i
             return pool, notes, "vid"
 
     # 2. подстраховка — каталожный `similar` к топ-живому якорю (ТИП, ШИРОКО — вид не распознан)
-    anchor = _top_live_nm(va) or (int(seed_nm) if seed_nm else None) or (nms[0] if nms else None)
+    anchor = (_top_live_nm(va, min_orders_year) or (int(seed_nm) if seed_nm else None)
+              or (nms[0] if nms else None))
     if anchor:
         rows = client.similar(int(anchor), limit=200, kind="similar")
         sim = [m for m in (build_item_metrics_from_row(r) for r in rows) if m.ok]
@@ -409,7 +418,7 @@ def collect_niche(client: MPStats, seed_nm: int | None, nms: list[int], limit: i
         # WB определил по исходному фото.
         if photo_category:
             sim = [m for m in sim if _item_in_category(m, photo_category)]
-        if _live_count(sim) >= 3:
+        if _live_count(sim, min_orders_year) >= 3:
             notes.append(f"вид узнан слабо (живых якорей {len(anchors)}) → каталожные «похожие» "
                          f"к SKU {anchor}: {len(sim)} — ШИРОКО, не про этот товар")
             return sim, notes, "type"
@@ -435,12 +444,13 @@ def analyze(*, nms: list[int] | None = None, seed_nm: int | None = None,
     photo_category = _wb_subject_name(nms or []) if nms and not seed_nm else None
     analogs, notes, niche_scope = collect_niche(client, seed_nm, nms or [], limit=limit,
                                                 min_visual=s.min_niche, vote_share=s.vote_share,
+                                                min_orders_year=s.min_orders_year,
                                                 photo_category=photo_category)
     if not analogs:
         return {"error": "Нет артикулов для оценки (визуальный поиск ничего не вернул)."}
 
     # ── популяция категории (один subject/items): денежный пол + сезонность + резервная ниша ──
-    live = [a for a in analogs if a.ok and a.in_stock and a.orders_year > 0]
+    live = [a for a in analogs if _is_live(a, s.min_orders_year)]
     wb_subject = None
     if seed_metric and seed_metric.ok and seed_metric.in_stock and seed_metric.orders_year > 0:
         # Карточка по ссылке — наиболее точный якорь для выбора её категории.
@@ -471,12 +481,12 @@ def analyze(*, nms: list[int] | None = None, seed_nm: int | None = None,
         notes.append(f"срез категории «{sname}» (id={sid}) недоступен — пол/сезонность категории пропущены")
 
     # ── 3-й уровень: живых похожих всё ещё мало (1–2) → судим по КАТЕГОРИИ, а не по паре карточек ──
-    if _live_count(analogs) < s.min_niche and pop_rows:
+    if _live_count(analogs, s.min_orders_year) < s.min_niche and pop_rows:
         cat_metrics = [m for m in (build_item_metrics_from_row(r) for r in pop_rows) if m.ok]
-        if _live_count(cat_metrics) >= 3:
-            notes.append(f"живых похожих мало ({_live_count(analogs)}) → оцениваю по категории "
-                         f"«{sname}» ({_live_count(cat_metrics)} живых) — грубее, чем по виду")
-            analogs = _top_live_sample(cat_metrics, cap=40)
+        if _live_count(cat_metrics, s.min_orders_year) >= 3:
+            notes.append(f"живых похожих мало ({_live_count(analogs, s.min_orders_year)}) → оцениваю по категории "
+                         f"«{sname}» ({_live_count(cat_metrics, s.min_orders_year)} живых) — грубее, чем по виду")
+            analogs = _top_live_sample(cat_metrics, s.min_orders_year, cap=40)
             niche_scope = "type"
         elif wb_subject:
             notes.append("MPStats вернул рынок предмета, но в нём недостаточно карточек с продажами и остатками")
@@ -485,7 +495,7 @@ def analyze(*, nms: list[int] | None = None, seed_nm: int | None = None,
     analogs, size_spread = _apply_size(analogs, query, notes, s)
 
     # категорию определяем по итоговой нише; тренд считаем по дневным рядам
-    live = [a for a in analogs if a.ok and a.in_stock and a.orders_year > 0]
+    live = [a for a in analogs if _is_live(a, s.min_orders_year)]
     score_items = analogs
     direct_item = bool(seed_metric and seed_metric.ok and seed_metric.in_stock and seed_metric.orders_year > 0)
     if direct_item:

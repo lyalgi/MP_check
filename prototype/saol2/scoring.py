@@ -23,6 +23,7 @@ from saol2.metrics import ItemMetrics
 class Settings:
     min_analogs: int = 3                 # меньше — LOW_SAMPLE
     min_niche: int = 5                   # меньше живых похожих → ниша достраивается из категории (subject_items)
+    min_orders_year: float = 20.0        # аналог с меньшим числом продаж/год не даёт сигнала о спросе — не «живой»
     vote_share: float = 0.5              # доля голосов категории-лидера (similar даёт 1–2 смежных субъекта)
     # абсолют меряем в ДЕНЬГАХ (выручка типичной карточки ниши ₽/мес). Ниша строится из MPStats
     # similar (≈ категория), поэтому пол — АБСОЛЮТНЫЙ (относительный к категории был бы цикличен).
@@ -199,7 +200,7 @@ def score(
     s = settings or Settings()
     v = Verdict()
 
-    live = [a for a in analogs_all if a.ok and a.in_stock and a.orders_year > 0]
+    live = [a for a in analogs_all if a.ok and a.in_stock and a.orders_year >= s.min_orders_year]
     if not live:
         v.reasons.append("NO_LIVE_ANALOGS")
         return v
